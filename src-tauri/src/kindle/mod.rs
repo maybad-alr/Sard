@@ -76,11 +76,14 @@ pub const DEFAULT_PORT: u16 = 587;
 /// The largest book this will attach.
 ///
 /// AMAZON'S OWN LIMIT IS NOT THE BINDING ONE. Amazon accepts 50 MB per email, but the message goes out
-/// through the READER'S provider, and 25 MB is the common ceiling there — and base64 inflates an
-/// attachment by a third on the wire, so a 20 MB book is already ~27 MB as it leaves. Refusing above
-/// this with a message that names the alternatives (the Send-to-Kindle app, or the web upload, which
-/// takes 200 MB) is more honest than a failure inside a provider the reader cannot see.
-pub const MAX_BOOK_BYTES: u64 = 20 * 1024 * 1024;
+/// through the READER'S provider and that ceiling is lower: Gmail refuses a message over 25 MB and
+/// silently replaces the attachment with a Drive LINK, which is useless to Amazon. base64 inflates an
+/// attachment by a third on the wire, so the file itself must stay under 25 × 3/4 ≈ 18.75 MB — and it
+/// is capped at 18 MB to leave room for headers and the multipart wrapper.
+///
+/// The arithmetic is the reason this is not 20 MB, which is where a first guess landed and which Gmail
+/// would have refused after the reader had already waited for the upload.
+pub const MAX_BOOK_BYTES: u64 = 18 * 1024 * 1024;
 
 /// The one line of body text. Fixed, and carrying nothing — see the module note.
 pub const BODY: &str = "Sent from Sard.";
