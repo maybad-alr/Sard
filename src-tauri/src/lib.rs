@@ -35,7 +35,7 @@ pub mod bookhost;
 pub mod presence; // DISC/RPC: Discord Rich Presence worker thread + the on/off gate
 pub mod profiles; // PROFILES: the visual-identity registry (storage only)
 pub mod settings; // key/value settings persistence
-pub mod sync; // FUTURE seam: backend trait only (placeholder)
+pub mod sync; // reading-state sync: the `SyncBackend` seam + the merge rules (no network yet)
 pub mod tts; // read-aloud over the Edge Read-Aloud neural voices
 pub mod webview_chrome; // RAWY-196: strip WebView2's browser chrome + accelerators (find bar, reload, print)
 pub mod window_chrome; // RAWY-118: theme the native title bar to match the app theme (DWM, Windows)

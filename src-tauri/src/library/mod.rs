@@ -30,6 +30,45 @@ pub fn progress_save(
     cfi: &str,
     fraction: f64,
 ) -> rusqlite::Result<()> {
+    progress_write(conn, book_id, Some(cfi), Some(fraction), now_unix())?;
+    // READING-STATE SYNC: the position moved, so this book now has something the account has not seen
+    // (see `sync::local::touch` — best-effort, and a no-op on a connection without the sync tables).
+    crate::sync::local::touch(conn, book_id);
+    Ok(())
+}
+
+/// Adopt a position that was written on ANOTHER device — the sync path.
+///
+/// SEPARATE FROM `progress_save` ONLY ON THE CLOCK, and that difference is the whole point.
+/// `progress_save` stamps `now_unix()`, which is right for a reader turning a page and wrong for
+/// adopting a remote row: re-stamping the arrival time would make an old position look like the newest
+/// move, and it would then keep beating the device that actually made it — the other device would
+/// adopt it back, and the two would trade the same book between two positions forever. The remote
+/// timestamp is carried through instead, so the next merge compares like with like.
+///
+/// It deliberately does NOT mark the book dirty: adopting a remote position is the moment this device
+/// AGREES with the account, and the caller finishes by recording that agreement.
+pub fn progress_adopt(
+    conn: &Connection,
+    book_id: &str,
+    cfi: Option<&str>,
+    fraction: Option<f64>,
+    updated_at: i64,
+) -> rusqlite::Result<()> {
+    progress_write(conn, book_id, cfi, fraction, updated_at)
+}
+
+/// The one writer of `reading_progress`.
+///
+/// `updated_at` is a parameter because the two callers above disagree about where it comes from, and
+/// that disagreement is the difference between turning a page and adopting someone else's.
+fn progress_write(
+    conn: &Connection,
+    book_id: &str,
+    cfi: Option<&str>,
+    fraction: Option<f64>,
+    updated_at: i64,
+) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO reading_progress(book_id, locator_cfi, fraction, updated_at) \
          VALUES(?1, ?2, ?3, ?4) \
@@ -37,7 +76,7 @@ pub fn progress_save(
             locator_cfi = excluded.locator_cfi, \
             fraction    = excluded.fraction, \
             updated_at  = excluded.updated_at",
-        rusqlite::params![book_id, cfi, fraction, now_unix()],
+        rusqlite::params![book_id, cfi, fraction, updated_at],
     )?;
     Ok(())
 }
