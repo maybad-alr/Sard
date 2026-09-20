@@ -205,3 +205,23 @@
   --sh3: 0 14px 34px rgba(0, 0, 0, 0.6);
   --sh4: 0 18px 44px rgba(0, 0, 0, 0.65);
 }
+
+/* THE ICON SIZES, RESTATED AS CSS.
+ *
+ * `Icon` sets `width="var(--icon-md)"` and `height="var(--icon-md)"` on its drawing. Those are SVG
+ * PRESENTATION ATTRIBUTES, and `var()` is not resolved inside them by every engine: Chrome 146
+ * resolves it, the Android System WebView on the test device (Chrome 133) does not. Where it is not
+ * resolved the attribute is invalid, the drawing has no usable size, and the replaced-element
+ * default takes over — measured on the device as 188–300px for icons that are meant to be 16, which
+ * is what turned the library's five view tabs into full-screen cards. The class below carries the
+ * same value through the stylesheet, where `var()` has always worked, so the size survives the
+ * engine difference. `Icon` applies it; this file stays the one place the sizes are stated.
+ *
+ * `:where()` IS THE POINT, not a shorthand. It keeps these rules at zero specificity, so every
+ * existing rule that sizes an icon in its own context — `.tts-ghost svg`, `.libd-empty-mark svg`,
+ * `.dep-eyebrow svg` and the rest — still wins exactly as it did before. These are DEFAULTS for
+ * drawings nobody else sizes, never overrides. */
+:where(svg.sard-icon-sm) { width: var(--icon-sm); height: var(--icon-sm); }
+:where(svg.sard-icon-md) { width: var(--icon-md); height: var(--icon-md); }
+:where(svg.sard-icon-lg) { width: var(--icon-lg); height: var(--icon-lg); }
+:where(svg.sard-icon-xl) { width: var(--icon-xl); height: var(--icon-xl); }

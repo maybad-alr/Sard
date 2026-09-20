@@ -3,6 +3,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { contrastRatio } from "../lib/contrast";
+import { isMobile } from "../lib/platform";
 import type { Theme } from "./tokens";
 import { applyVistaTokens } from "./vistaTokens";
 
@@ -86,6 +87,7 @@ function resolveReadMarker(source: string, ground: string, text: string): string
  * during its own startup, after our first paint, so one call at boot does not stick.
  */
 export function reapplyTitlebarTheme(): void {
+  if (isMobile()) return;
   invoke("set_titlebar_theme").catch(() => {});
 }
 

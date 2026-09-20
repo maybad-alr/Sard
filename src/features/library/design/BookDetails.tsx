@@ -691,7 +691,7 @@ export function BookDetails(props: BookDetailsProps) {
       }}
     >
       <div
-        className="libd-dialog"
+        className="libd-dialog book-details"
         ref={(node) => { dialogRef.current = node; dlg.ref(node); scrim.panelRef(node); }}
         // It behaves as a modal — it covers the library, takes the press outside, and answers to
         // Escape — so it has to SAY it is one. Without this a screen reader announces an anonymous
@@ -715,6 +715,7 @@ export function BookDetails(props: BookDetailsProps) {
       >
         {/* ---- head: jacket, editable name, the book's own facts ---- */}
         <div
+          className="book-details-head"
           style={{
             display: "flex",
             alignItems: "flex-start",
@@ -801,11 +802,11 @@ export function BookDetails(props: BookDetailsProps) {
           </button>
         </div>
 
-        <div style={{ padding: "18px 24px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div className="book-details-body" style={{ padding: "18px 24px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
           {/* ---- cover and spine ---- */}
 
           <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 250 }}>
+            <div className="book-details-column" style={{ flex: 1, minWidth: 250 }}>
               <div style={legend}>{t("lib.cover")}</div>
               <div style={{ font: "400 .6875rem var(--ui)", color: "var(--faint)", margin: "-4px 0 9px" }}>
                 {t("lib.coverUse")}
@@ -905,7 +906,7 @@ export function BookDetails(props: BookDetailsProps) {
               </div>
             </div>
 
-            <div style={{ flex: "none", width: 250 }}>
+            <div className="book-details-column" style={{ flex: "none", width: 250 }}>
               <div style={legend}>{t("lib.spine")}</div>
               <div style={{ font: "400 .6875rem var(--ui)", color: "var(--faint)", margin: "-4px 0 9px" }}>
                 {t("lib.spineUse")}

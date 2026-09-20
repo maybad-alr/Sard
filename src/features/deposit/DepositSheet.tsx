@@ -1,3 +1,4 @@
+import { isMobile } from "../../lib/platform";
 // THE DEPOSIT SHEET — one sheet, a map and a sheaf.
 //
 // You do not pick from categories; you pick from the book. The sheet opens with the shape of the
@@ -225,7 +226,8 @@ export function DepositSheet({ book, onClose }: { book: BookRow; onClose: () => 
         {done}
       </div>
       <div className="dep-actions">
-        <button
+        {!isMobile() && (
+          <button
           type="button"
           className="dep-btn dep-btn-primary"
           onClick={async () => {
@@ -234,7 +236,8 @@ export function DepositSheet({ book, onClose }: { book: BookRow; onClose: () => 
           }}
         >
           {t("dep.donePrimary")}
-        </button>
+          </button>
+        )}
         <button type="button" className="dep-btn" onClick={onClose}>
           {t("dep.doneBack")}
         </button>

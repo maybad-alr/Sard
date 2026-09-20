@@ -1,0 +1,69 @@
+@media (max-width: 700px) {
+  .reader-root { --reading-shift: 0px !important; }
+  /* Panels overlay the page on phones; all geometry consumers share zero reservation. */
+  .reader-root .reader-desk {
+    --reader-lead-space: 0px !important;
+    --reader-trail-space: 0px !important;
+    --panel-lead: 0px !important;
+    --panel-trail: 0px !important;
+  }
+  .reader-root .page-sheet { inline-size: 100%; max-inline-size: 100%; }
+  .reader-root:not(.flow-scrolled) .page-host { inset-inline: min(var(--page-margin, 24px), 6vw); }
+  .reader-root .rc-top {
+    display: flex;
+    gap: 8px;
+    padding-inline: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  .reader-root .rc-nav { flex: none; }
+  .reader-root .rc-btns { gap: 4px; }
+  .reader-root .rc-top > .rc-btns { margin-left: auto; }
+  .reader-root .rc-title-block { display: none; }
+  .reader-root .rc-divider { display: none; }
+  .reader-root .rc-btn { min-width: 44px; min-height: 56px; justify-content: center; gap: 3px; }
+  .reader-root .rc-btn-ico { width: 44px; height: 44px; }
+  .reader-root .rc-btn-label { max-width: 44px; font-size: 10px; }
+  .reader-root .rc-bottom { padding-inline: 16px; }
+  .reader-root .reader-panel { width: min(380px, 100vw); max-inline-size: 100%; }
+  .reader-root .settings-panel { width: min(384px, 100vw); }
+  .reader-root .rp-head { padding: 10px 14px; }
+  .reader-root .rp-x.ui-close,
+  .reader-root .rp-eye { min-width: 44px; min-height: 44px; }
+  /* Above 390px the 380px panel leaves a sliver of page visible on one side with no way to
+     reach it — a tap there lands on the page, not the panel. Full-bleed up to the breakpoint
+     keeps the overlay all-or-nothing. */
+  .reader-root .reader-panel { width: 100vw; }
+  .reader-root .settings-panel { width: 100vw; }
+
+  .gs {
+    width: 100%; height: 100%; height: 100dvh;
+    inset: 0; transform: none; border-radius: 0;
+    flex-direction: column;
+  }
+  .gs .gs-nav {
+    width: 100%; padding: 14px 16px 8px;
+    border-inline-end: 0; border-bottom: 1px solid var(--chrome-border);
+  }
+  .gs .gs-brand { padding: 0 0 12px; }
+  .gs .gs-nav-list { flex-direction: row; overflow-x: auto; gap: 8px; }
+  .gs .gs-nav-item { flex: none; width: auto; min-height: 44px; white-space: nowrap; }
+  .gs .gs-appwide { display: none; }
+  .gs .gs-content { min-height: 0; }
+  .gs .gs-topbar { height: 44px; }
+  .gs .gs-x { width: 44px; height: 44px; }
+  .gs .gs-body { padding: 18px 16px; }
+  .gs .gs-sec.gs-two, .gs .gs-two-row { flex-direction: column; }
+  .gs .gs-fontrow { flex-wrap: wrap; }
+  .gs input, .gs select { max-width: 100%; }
+
+  .lib-root .lib-grid { padding: 16px; gap: 20px 12px; grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); }
+  .libd-dialog.book-details { width: calc(100% - 16px) !important; max-height: calc(100dvh - 16px) !important; }
+  .book-details .book-details-head { gap: 12px !important; padding: 16px !important; flex-wrap: wrap; }
+  .book-details .book-details-head > :first-child { max-width: 64px; }
+  .book-details .book-details-body { padding: 16px !important; }
+  .book-details .book-details-column { min-width: 0 !important; width: 100% !important; flex-basis: 100% !important; }
+  .book-details input { min-height: 44px; }
+  .book-details .ui-close { min-width: 44px; min-height: 44px; }
+}

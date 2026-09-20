@@ -64,6 +64,11 @@ msedge-tts = "0.4"
 # connect). We install aws-lc-rs as the explicit process default at startup to disambiguate.
 rustls = { version = "0.23", features = ["aws_lc_rs"] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# Read document-picker content URIs through Android's ContentResolver, never as filesystem paths.
+tauri-plugin-fs = "2.5.1"
+percent-encoding = "2"
+
 # DESKTOP-ONLY PLUGINS. All three are unavailable on Android and iOS, and one of them does not merely
 # fail at run time — it fails to COMPILE:
 #

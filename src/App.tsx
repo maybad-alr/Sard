@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isMobile } from "./lib/platform";
 // Design tokens first, so every sheet after this can read them. Defining them changes nothing on
 // its own — no rule consumes them yet; the surfaces move across in their own stages.
 import "./styles/tokens.css";
@@ -10,10 +11,13 @@ import "./styles/profiles.css";
 import "./styles/deposit.css";
 // Choosing several things at once: one appearance for every list that offers it.
 import "./styles/selection.css";
+import "./styles/mobile.css";
 import { I18nProvider, useI18n } from "./i18n";
 import { initBookmarkStyle } from "./lib/bookmarkStyle";
 import { initReadMarkerStyle } from "./lib/readMarkerStyle"; // RAWY-256: persisted read-marker variant
 import { initFonts } from "./lib/fonts";
+import { initTouchFeedback } from "./lib/touchFeedback"; // phone: the ripple under the finger
+import { initAndroidBack, onAndroidBack } from "./lib/androidBack"; // phone: the back gesture, claimed before it can exit
 import { applyBackgrounds, initBackground, useBackground } from "./lib/background"; // RAWY-265
 import { createCloseHandler, runCloseFlush } from "./lib/closeFlush"; // the window close is owned by the page, not the Reader
 import { diagStart } from "@diag"; // DIAGNOSTIC BUILD ONLY - observes, never intervenes
@@ -124,6 +128,26 @@ function Root() {
     if (wantsArchive || wantsBook || wantsFile) setOpen(null);
   }, [wantsArchive, wantsBook, wantsFile]);
 
+  // ANDROID'S BACK GESTURE, WHILE A BOOK IS OPEN, CLOSES THE BOOK. Without this the press fell through
+  // to the activity and ended the process — the reader was thrown out of the app mid-chapter. A book is
+  // a screen like any other on a phone, and back means "leave this screen", not "quit". Registered only
+  // while the reader is mounted, so the library keeps its own meaning for the same press (a sheet first,
+  // then leaving the app).
+  //
+  // ⚠ ABOVE THE EARLY RETURNS BELOW, WITH THE OTHER HOOKS, AND THAT IS NOT A STYLE CHOICE. It was first
+  // written just before the `return` at the end of this component — after `if (!i18nReady || !themeReady)
+  // return null`. On the first render that branch returns before the hook runs; on the next it does not.
+  // React counts hooks per render, so the component that had rendered three now rendered four:
+  // "Rendered more hooks than during the previous render", error #310, thrown during startup — a BLACK
+  // SCREEN on the phone with no error in the UI. Every hook belongs before the first early return.
+  useEffect(() => {
+    if (!open) return;
+    return onAndroidBack(() => {
+      setOpen(null);
+      return true;
+    });
+  }, [open]);
+
   if (!i18nReady || !themeReady) return null; // brief: settings loading (avoids theme flash)
   // RESILIENCE-1 / WP-1: the runtime gate. foliate's OPF parser needs browser features an older
   // WebView2 does not have; without them NO book opens, so this is a genuine precondition rather
@@ -186,6 +210,17 @@ function App() {
     initBackground();
     registerOutcomeRecorder(); // RAWY-263: observe listening outcomes locally. Read-only; never writes while audio plays.
     initPresence(); // DISC/RPC: load the persisted Discord on/off switch
+    // The phone's touch feedback: one document-level listener that paints a ripple under the finger.
+    // It attaches only while the phone breakpoint matches, so the desktop never sees it — and it is
+    // removed on unmount so a hot reload cannot stack listeners.
+    const stopTouchFeedback = initTouchFeedback();
+    // The back gesture is answered here for the whole app: the topmost sheet first, then whatever
+    // screen claimed it (a book), and only then the exit.
+    const stopAndroidBack = initAndroidBack();
+    return () => {
+      stopAndroidBack();
+      stopTouchFeedback();
+    };
   }, []);
 
   // RAWY-265 — the library background is re-derived whenever the LIBRARY theme or any of its own
@@ -218,6 +253,7 @@ function App() {
   // system's light one is the flicker this replaces), again once WebView2 has finished, and on every
   // focus — the caption is theme-independent, so these are the only three moments that matter.
   useEffect(() => {
+    if (isMobile()) return;
     reapplyTitlebarTheme();
     const t = window.setTimeout(reapplyTitlebarTheme, 1200);
     let unlisten: (() => void) | undefined;
@@ -254,6 +290,7 @@ function App() {
   // Reader's flush (position + read-aloud cursor), bounded so a slow or failed save can never leave
   // the window unclosable — the failure mode RAWY-174 already paid for once.
   useEffect(() => {
+    if (isMobile()) return;
     const win = getCurrentWindow();
     let unlisten: (() => void) | undefined;
     let disposed = false; // a cleanup that beats the registration promise must still unregister
@@ -280,6 +317,7 @@ function App() {
   // `isFullscreen()` (which can lag the actual state, so a naive `!isFullscreen()` re-entered
   // instead of exiting). Esc is a no-op when not fullscreen, so it never clobbers other Esc use.
   useEffect(() => {
+    if (isMobile()) return;
     let full = false;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "F11") {

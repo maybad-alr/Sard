@@ -18,6 +18,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { create } from "zustand";
 
 import { settingsGet, settingsSet } from "./ipc";
+import { isMobile } from "./platform";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LAST_CHECK_KEY = "updater_last_check"; // key/value settings row (RAWY-162 pattern)
@@ -96,6 +97,7 @@ export const useUpdater = create<UpdaterStore>((set, get) => ({
   cancelRequested: false,
 
   auto: async () => {
+    if (isMobile()) return;
     if (get().autoDone) return; // at most once per session (survives Library remounts)
     set({ autoDone: true });
     const last = await settingsGet(LAST_CHECK_KEY).catch(() => null);
@@ -108,6 +110,7 @@ export const useUpdater = create<UpdaterStore>((set, get) => ({
   },
 
   manual: async () => {
+    if (isMobile()) return;
     const s = get().state.k;
     if (s === "checking" || s === "downloading" || s === "installing") return;
     set({ state: { k: "checking" } });
@@ -122,6 +125,7 @@ export const useUpdater = create<UpdaterStore>((set, get) => ({
   },
 
   install: async () => {
+    if (isMobile()) return;
     const st = get().state;
     if (st.k !== "available") return;
     const { update, version } = st;

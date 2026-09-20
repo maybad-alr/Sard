@@ -24,6 +24,7 @@ import type { ReactElement, SVGProps } from "react";
 
 export type IconName =
   | "close"        // was U+2715
+  | "plus"
   | "more"         // was U+22EF  (overflow menu)
   | "caretDown"    // was U+25BE  (disclosure, open)
   | "caretRight"   // was U+25B8  (disclosure, collapsed)
@@ -205,6 +206,11 @@ const PATHS: Record<IconName, ReactElement> = {
     </>
   ),
   close: <path d="M6 6 18 18M18 6 6 18" />,
+  // The add mark, on the same 24-unit grid and at the same structural weight as the rest of the
+  // outline family. It exists for the phone's extended FAB, whose label alone reads as a button in a
+  // row; a FAB carries a mark. Bars run 6..18 horizontally and 6..18 vertically, so the ink centres
+  // on the grid with nothing to nudge.
+  plus: <path d="M12 6v12M6 12h12" />,
   more: (
     <>
       <circle cx="5.2" cy="12" r="1.5" />
@@ -606,7 +612,7 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name"> {
  * keeps the `aria-label` / `title` it already had. Every glyph replaced by this component was the
  * sole label of its button, so dropping that name would leave the control unnamed.
  */
-export function Icon({ name, size = "md", ...rest }: IconProps) {
+export function Icon({ name, size = "md", className, ...rest }: IconProps) {
   const filled = FILLED.has(name);
   const perPath = PER_PATH.has(name);
   // Below 16px a drawing with fewer parts is used where one exists — the switch the designer
@@ -617,6 +623,14 @@ export function Icon({ name, size = "md", ...rest }: IconProps) {
       viewBox="0 0 24 24"
       width={SIZE[size]}
       height={SIZE[size]}
+      // THE SIZE IS ALSO A CLASS, and that is not decoration. `width`/`height` here are SVG
+      // PRESENTATION ATTRIBUTES, and not every engine resolves `var()` inside them: Chrome 146 does,
+      // the Android System WebView on the test device (Chrome 133) does not — the attribute is then
+      // invalid, and a drawing with no usable size falls back to the replaced-element default, which
+      // rendered every icon in the library at 188–300px instead of 16. The class carries the same
+      // value to the stylesheet, where `var()` has always worked. See `tokens.css` for the rules and
+      // for why they are wrapped in `:where()`.
+      className={["sard-icon", `sard-icon-${size}`, className].filter(Boolean).join(" ")}
       // COLOUR IS NEVER FIXED HERE. Both channels resolve to `currentColor`, so a mark takes the ink
       // of whatever control holds it and follows the active theme across all sixteen papers with no
       // per-theme artwork. A `fill`/`stroke` set on a child overrides only that child, and the

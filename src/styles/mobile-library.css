@@ -1,0 +1,151 @@
+/* The existing desktop geometry remains in Chrome.tsx. Only the new phone controls
+   are hidden outside this viewport breakpoint; no platform detection is involved. */
+.libd-mobile-header,
+.libd-mobile-backdrop {
+  display: none;
+}
+.libd-chrome button.libd-mobile-close { display: none !important; }
+
+@media (max-width: 700px) {
+  .lib-root.libd-root { flex-direction: column; }
+  .libd-root > .libd-mobile-drawer ~ div:not(.libd-overlay-host) { min-height: 0; }
+
+  .libd-mobile-header {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+    border-bottom: 1px solid var(--brd);
+    background: var(--chr);
+    color: var(--txt);
+  }
+  .libd-mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    direction: ltr;
+    white-space: nowrap;
+  }
+  .libd-mobile-brand b { font: 600 1.0625rem/1 var(--brand); }
+  .libd-mobile-brand em { font: 700 1.1875rem/1 var(--brand-ar); }
+  .libd-mobile-brand > span { color: var(--mut); }
+  .libd-chrome button.libd-mobile-toggle,
+  .libd-chrome button.libd-mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--brd);
+    border-radius: var(--r-md);
+    color: var(--txt);
+    background: var(--pap);
+    font: 500 .8125rem var(--ui);
+  }
+  .libd-chrome button.libd-mobile-close { display: inline-flex !important; margin-inline-start: auto; flex: none; }
+  .libd-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: rgb(0 0 0 / 45%);
+    cursor: pointer;
+  }
+  .lib-sidebar.libd-mobile-drawer {
+    display: none !important;
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 100;
+    width: min(320px, calc(100vw - 48px)) !important;
+    max-height: 100dvh;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow: var(--sh4);
+  }
+  .lib-sidebar.libd-mobile-drawer.is-open { display: flex !important; }
+  .libd-mobile-drawer > div { flex-shrink: 0; }
+  .libd-mobile-drawer > div[style*="overflow-y"] { flex-shrink: 1; min-height: 80px; }
+  .libd-mobile-drawer button { min-height: 44px; }
+  .libd-mobile-drawer .libd-shelfdots,
+  .libd-mobile-drawer .libd-casedots { min-width: 44px; }
+
+  .libd-chrome.libd-header {
+    min-width: 0;
+    max-width: 100%;
+    padding: 12px 12px 8px !important;
+    max-height: 60dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .libd-header-title,
+  .libd-header-actions,
+  .libd-header-crumbs { flex-wrap: wrap; min-width: 0; }
+  .libd-header-title { gap: 12px !important; }
+  .libd-header-title > .libd-plate { width: 100%; max-width: 100%; flex-wrap: wrap; }
+  .libd-header-title .libd-plate > div { flex-wrap: wrap; max-width: 100%; }
+  .libd-header-title h1 { min-width: 0; max-width: 100%; }
+  .libd-header-title .libd-plate span { white-space: normal !important; overflow-wrap: anywhere; }
+  .libd-header-crumbs > span { min-width: 0; max-width: 100%; }
+  .libd-header-crumbs button { overflow-wrap: anywhere; text-align: start; }
+  .libd-header-actions { gap: 8px !important; }
+  .libd-header-actions button,
+  .libd-header-controls > button,
+  .libd-header-controls > div > button {
+    min-height: 44px;
+    height: auto !important;
+    max-width: 100%;
+    padding-block: 8px !important;
+    white-space: normal;
+  }
+  .libd-header-controls { min-width: 0; gap: 8px !important; }
+  .libd-header-controls > div { min-width: 0; max-width: 100%; }
+  .libd-header-search {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    min-height: 44px;
+  }
+  .libd-header-search input { font-size: 16px !important; }
+  .libd-header-search button { min-width: 44px; min-height: 44px; }
+  .libd-header-views {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 4px !important;
+  }
+  .libd-header-views button.libd-viewtab {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+    height: auto !important;
+    padding: 8px !important;
+    white-space: normal;
+  }
+  .libd-header-controls .libd-size { min-height: 44px; }
+  /* The two anchored menus must escape the scrollable phone toolbar and stay
+     inside the viewport regardless of the wrapping position of their triggers. */
+  .libd-header-controls > div > div[style] {
+    position: fixed !important;
+    inset-inline: 12px !important;
+    top: auto !important;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: auto !important;
+    max-height: 50dvh;
+    overflow-y: auto;
+  }
+  .libd-header button:focus-visible,
+  .libd-mobile-header button:focus-visible,
+  .libd-mobile-drawer button:focus-visible {
+    outline: 2px solid var(--acc);
+    outline-offset: 2px;
+  }
+  .libd-header-search:focus-within { outline: 2px solid var(--acc); outline-offset: 2px; }
+}

@@ -16,6 +16,7 @@ import { create } from "zustand";
 
 import { translate, LANG_KEY, type Lang } from "../i18n";
 import { settingsGet, settingsSet } from "./ipc";
+import { isMobile } from "./platform";
 
 const K_ENABLED = "discord_rpc_enabled";
 // The presentation sub-switches, same convention (absent = on). The core re-checks them in
@@ -44,7 +45,7 @@ export interface PresenceState {
 
 export const usePresence = create<PresenceState>((set) => ({
   ready: false,
-  enabled: true,
+  enabled: !isMobile(),
   showBook: true,
   showPosition: true,
   showBrowsing: true,
@@ -84,6 +85,10 @@ export const usePresence = create<PresenceState>((set) => ({
 
 /** Load the persisted switch and presentation flags at startup, alongside every other `init*`. */
 export async function initPresence() {
+  if (isMobile()) {
+    usePresence.setState({ enabled: false, ready: true });
+    return;
+  }
   const raw = await settingsGet(K_ENABLED).catch(() => null);
   const [showBook, showPosition, showBrowsing] = await Promise.all([
     settingsGet(K_SHOW_BOOK).catch(() => null),
@@ -165,6 +170,7 @@ function push() {
 
 /** The app is open, no book: the browsing activity, localized by the persisted UI language. */
 async function beginBrowsingSession() {
+  if (isMobile()) return;
   if (!usePresence.getState().showBrowsing) {
     // The browsing line is switched off: show nothing while no book is open. A later book-open
     // still replaces this (startReadingSession works regardless of the flag).
@@ -191,8 +197,9 @@ function refreshSession() {
 }
 
 const presenceUpdate = (s: Session): Promise<void> =>
-  invoke<void>("presence_update", {
+  isMobile() ? Promise.resolve() : invoke<void>("presence_update", {
     activity: { kind: s.kind, details: s.details, state: s.state, startedAt: s.startedAt },
   });
 
-const presenceClear = (): Promise<void> => invoke<void>("presence_clear");
+const presenceClear = (): Promise<void> =>
+  isMobile() ? Promise.resolve() : invoke<void>("presence_clear");

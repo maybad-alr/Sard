@@ -9,6 +9,13 @@ use tauri::State;
 use crate::db::{self, AppState};
 use crate::{backgrounds, books, deposit, fonts, library, photocards, profiles, settings};
 
+// Android custody only: content URIs are staged in the app cache and handed to the normal
+// importer. Format detection, dedup and the managed copy stay in `books`.
+#[cfg(any(target_os = "android", test))]
+mod import_cache;
+#[cfg(target_os = "android")]
+mod import_android;
+
 #[derive(Serialize)]
 pub struct AppInfo {
     /// THE BUILD ID baked in at compile time (build.rs). Product metadata, not instrumentation:
@@ -84,6 +91,15 @@ pub fn app_info(state: State<AppState>) -> Result<AppInfo, String> {
         db_path: state.db_path.display().to_string(),
         schema_version,
     })
+}
+
+/// LEAVE THE APP — the last resort of the Android back gesture, and the only exit that runs Sard's own
+/// teardown: `app.exit` raises `ExitRequested`, which is where the warm Edge TTS socket and the Discord
+/// presence are dropped (see `lib.rs`). Finishing the Android activity from the platform side skips all
+/// of that, which is why the phone's back press is answered here rather than by `super.onBackPressed()`.
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 /// DIAGNOSTIC BUILD ONLY — write the collected evidence next to the profile.
@@ -764,11 +780,18 @@ pub fn category_delete(id: String, state: State<AppState>) -> Result<structure::
 #[tauri::command]
 pub async fn import_books(
     paths: Vec<String>,
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<books::ImportResult>, String> {
     let app_data_dir = state.app_data_dir.clone();
     let conn = state.conn();
-    Ok(books::import_books(&conn, &app_data_dir, &paths))
+    #[cfg(target_os = "android")]
+    { Ok(import_android::import_books(&app, &conn, &app_data_dir, &paths)) }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Ok(books::import_books(&conn, &app_data_dir, &paths))
+    }
 }
 
 /// RAWY-80 (audit #7) — import every EPUB inside a chosen folder (recursive), through the
@@ -781,9 +804,17 @@ pub async fn import_folder(
     dir: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<books::ImportResult>, String> {
-    let app_data_dir = state.app_data_dir.clone();
-    let conn = state.conn();
-    Ok(books::import_folder(&conn, &app_data_dir, &dir))
+    #[cfg(mobile)]
+    {
+        let _ = (dir, state);
+        Err("Folder import is unsupported on mobile; select EPUB or PDF files instead.".into())
+    }
+    #[cfg(desktop)]
+    {
+        let app_data_dir = state.app_data_dir.clone();
+        let conn = state.conn();
+        Ok(books::import_folder(&conn, &app_data_dir, &dir))
+    }
 }
 
 /// RAWY-19 — editable metadata patch (all optional; absent = leave unchanged).

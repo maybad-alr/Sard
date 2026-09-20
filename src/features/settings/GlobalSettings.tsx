@@ -18,6 +18,7 @@ import { Hoopoe } from "../library/Hoopoe";
 import { ProfilesSection } from "../profiles/ProfilesSection";
 import { settingsGet, settingsSet } from "../../lib/ipc";
 import { useUpdater } from "../../lib/updater";
+import { isMobile } from "../../lib/platform";
 import { familiesOnce, FONT_CATALOGUE, UI_SCALE_MAX, UI_SCALE_MIN, useFonts } from "../../lib/fonts";
 // RAWY-265: the Library background surface (measured constants + the apply layer live in the module).
 import { BG_BLUR_MAX, BG_PRESENCE_MAX, bgSrcUrl, imageLabel, useBackground } from "../../lib/background";
@@ -85,7 +86,7 @@ export function GlobalSettings({ open, onClose }: { open: boolean; onClose: () =
             <span className="gs-brand-name" id={dlg.titleId}>{t("gs.title")}</span>
           </div>
           <div className="gs-nav-list">
-            {NAV.map((n) => (
+            {NAV.filter((n) => n.key !== "presence" || !isMobile()).map((n) => (
               <button
                 key={n.key}
                 className={`gs-nav-item${section === n.key ? " on" : ""}`}
@@ -118,7 +119,7 @@ export function GlobalSettings({ open, onClose }: { open: boolean; onClose: () =
             {section === "fonts" && <FontsSection />}
             {section === "bookmark" && <BookmarkSection />}
             {section === "language" && <LanguageSection />}
-            {section === "presence" && <PresenceSection />}
+            {section === "presence" && !isMobile() && <PresenceSection />}
             {section === "about" && <AboutSection />}
           </div>
         </div>
@@ -868,6 +869,7 @@ function AboutSection() {
           )}
         </div>
       </div>
+      {!isMobile() && (
       <div className="gs-update">
         <button className="gs-update-btn" onClick={check} disabled={busy}>
           <svg className={busy ? "gs-update-spin" : ""} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 11a8 8 0 1 0-.6 3M20 4v6h-6" /></svg>
@@ -877,6 +879,7 @@ function AboutSection() {
             failure all open the shared dialog, so this row never renders a second copy of them. */}
         {updState.k === "uptodate" && <div className="gs-update-msg">{t("upd.uptodate")}</div>}
       </div>
+      )}
       {/* WHO MADE IT. Placed between the product's identity and its legal record because that is
           the order the question arrives in: what this is, who is behind it, what you agreed to. */}
       <SecHead>{t("gs.contact")}</SecHead>

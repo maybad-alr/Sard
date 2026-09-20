@@ -88,6 +88,7 @@ import { ReplacementNotice } from "./ReplacementNotice";
 import { TtsPlayer } from "./TtsPlayer";
 import { releaseButtonFocusAfterPointerClick, skipSentenceForArrow, useTts } from "../../lib/tts";
 import { useChromeOnIntent } from "./useChromeOnIntent";
+import { usePhoneViewport } from "../../lib/usePhoneViewport";
 
 // The book to open: id (for progress) + absolute file path (for the asset protocol).
 export interface OpenTarget {
@@ -2271,10 +2272,23 @@ export function Reader({
   const fitWindow = style?.pageFitWindow ?? false;
   // RAWY-74: the page-turn chevrons belong to PAGED mode only — in scrolled mode there are no pages
   // to turn, so they're hidden (they were showing in scrolled mode where next()/prev() jump sections).
+  // PHONE WIDTH, TRACKED. The same query `Chrome.tsx` uses for the library's drawer, so the two
+  // surfaces agree on what "a phone" means and neither invents a second breakpoint.
+  const isPhoneViewport = usePhoneViewport();
   const isPaged = (style?.flowMode ?? "scrolled") === "paged";
   // RAWY-86: a PDF is fixed-layout — ALWAYS paged (chevrons + wheel-to-page), never scrolled. This
   // is the stuck-nav fix (RAWY-85 left a PDF with no chevrons + a scroll no-op).
-  const showChevrons = isPaged || isPdf;
+  //
+  // AND ON A PHONE THEY ARE ALSO THE ONLY VISIBLE WAY DOWN IN SCROLLED FLOW. On the desktop that mode
+  // is navigated by the wheel and the keyboard, and by a scrollbar that is always on screen — the
+  // reading area scrolls with no control needed, so these two stay out of the way. A phone has neither:
+  // it has a swipe, which works (measured: the position advances 14 → 15 across two swipes) but has no
+  // affordance at all — immersive reading hides the scrollbar by design and nothing on screen says the
+  // page continues below. Reported as "there is no way to go down in reading mode", and the honest fix
+  // is to show the control the app already has rather than to invent a second one.
+  //
+  // `isPdf` keeps its old branch; the new one is the scrolled EPUB on a phone-width viewport.
+  const showChevrons = isPaged || isPdf || (isPhoneViewport && !isPdf);
   // RAWY-74: forward wheel events happening over the reading MARGINS (the desk / sheet padding,
   // outside foliate's content iframe) to the book's scroller, so the wheel scrolls anywhere in the
   // reading area — not only over the text. A wheel over the text fires INSIDE the iframe (never
@@ -2429,6 +2443,12 @@ export function Reader({
       const section = parseSectionHref(href);
       const r = section != null ? ctrlRef.current?.goToSection(section) : ctrlRef.current?.goToHref(href);
       restoreReadingFocus();
+      // ON A PHONE THE LIST MUST GET OUT OF THE WAY. The panel is docked beside the page on the
+      // desktop, so a chapter can be picked and the result seen in the same glance. At phone width the
+      // panel is a bottom sheet that covers the page it just navigated to — the reader tapped a
+      // chapter, the SAME list stayed on screen, and the book read as though it had not moved
+      // (reported from the device). Dismissing on selection is also what a Material sheet does.
+      if (window.matchMedia("(max-width: 700px)").matches) setLeftPanel(null);
       return r;
     },
     [restoreReadingFocus],
@@ -2496,8 +2516,10 @@ export function Reader({
     // Page margin insets the foliate host within the sheet (RAWY-36) — reliable across flow modes
     // (foliate's !important html padding can't be beaten from injected CSS).
     "--page-margin": `${style?.marginPx ?? 56}px`,
-    paddingLeft: leftPad,
-    paddingRight: rightPad,
+    paddingLeft: "var(--reader-lead-space)",
+    paddingRight: "var(--reader-trail-space)",
+    "--reader-lead-space": `${leftPad}px`,
+    "--reader-trail-space": `${rightPad}px`,
     // RESILIENCE-1 / WP-4B: the SAME insets, published as vars so the page-turn chevrons can move
     // with the reading area. They must be set here, next to the padding they mirror — an absolutely
     // positioned child cannot read its parent's padding, and a second hardcoded 300 would drift.

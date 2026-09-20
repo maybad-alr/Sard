@@ -32,7 +32,11 @@ pub mod photocards; // saved photo cards: PNG store + DB rows (RAWY-52, Photo Mo
 // only where a WebView actually needs it — see the registration in `run()` for why Windows does not.
 #[cfg(not(target_os = "windows"))]
 pub mod bookhost;
+#[cfg(desktop)]
 pub mod presence; // DISC/RPC: Discord Rich Presence worker thread + the on/off gate
+#[cfg(mobile)]
+#[path = "presence_mobile.rs"]
+pub mod presence; // Same IPC contract, without desktop Discord IPC or a worker thread
 pub mod profiles; // PROFILES: the visual-identity registry (storage only)
 pub mod settings; // key/value settings persistence
 pub mod sync; // FUTURE seam: backend trait only (placeholder)
@@ -42,7 +46,11 @@ pub mod window_chrome; // RAWY-118: theme the native title bar to match the app 
 
 use std::path::Path;
 
-use tauri::{Emitter, Manager};
+// `Emitter` is desktop-only: the single-instance callback (see below) is the only emitter, and
+// that plugin is not compiled on mobile.
+#[cfg(desktop)]
+use tauri::Emitter;
+use tauri::Manager;
 
 /// One-time, idempotent migration of legacy app-data from the old identity
 /// (`com.erawy.app` / `erawy.db`) to the new one (`com.sard.app` / `sard.db`).
@@ -99,6 +107,7 @@ macro_rules! sard_invoke_handler {
     ($builder:expr $(, $diag_cmd:path)* $(,)?) => {
         $builder.invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::quit_app,
             commands::db_health,
             commands::settings_get,
             commands::settings_set,
@@ -479,6 +488,10 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init());
+
+    // Rust-only document reads use the picker-granted URI; no broad frontend fs permission.
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_fs::init());
 
     // SINGLE INSTANCE — DESKTOP ONLY, and not by preference.
     //

@@ -1,0 +1,578 @@
+/* THE PHONE LAYER — Material-shaped surfaces for a viewport that behaves like a phone.
+ *
+ * WHY THIS FILE EXISTS AT ALL. The first phone pass made the desktop layout FIT a narrow window: the
+ * header's button rows wrapped, the search field kept its rectangle, and panels were told to be
+ * full-bleed. Everything worked and nothing read as designed for the device. This layer is the other
+ * approach — the surfaces are re-shaped to the idioms Android users already know, so the screen looks
+ * authored for a phone rather than reflowed from a desktop.
+ *
+ * WHAT IT CHANGES, in one list: an app bar with a large title; actions and view modes as scrollable
+ * chip rows; the search field as a pill; the primary action as a floating action button; the drawer as
+ * a Material navigation drawer; every menu, panel and dialog as a modal bottom sheet with a drag
+ * handle and a scrim; and a ripple under the finger.
+ *
+ * THREE RULES THIS FILE KEEPS.
+ *   1. NOTHING HERE IS OUTSIDE `@media (max-width: 700px)`. The desktop is not a fallback for this
+ *      layer, it is the untouched original — no rule in this file can reach it.
+ *   2. INLINE STYLES WIN, SO THE ONES THAT MUST BE OVERTAKEN SAY `!important`. The desktop geometry
+ *      lives in inline styles on the very elements being reshaped (chip radii, the FAB's height, the
+ *      panel's width). This is deliberate and not laziness: an inline style is the strongest statement
+ *      a component makes about itself, and the phone is the one place that statement is wrong.
+ *   3. THE SURFACES ARE REUSED, NOT REBUILT. Every control below is the same element the desktop
+ *      renders, with the same handler behind it. No feature is hidden to make the shape work — the
+ *      select/arrange/deposit actions stay on screen as chips precisely so the phone keeps them.
+ *
+ * LOAD ORDER. Imported from `Chrome.tsx` immediately after `mobile-library.css`, so it is the last
+ * phone stylesheet in the bundle and its rules are the ones that land.
+ */
+
+/* ── The scales this layer is drawn on ─────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  :root {
+    /* Material's shape scale, phone end: sheets and FABs take the large corner, fields and cards the
+       medium, chips and indicators the full round. */
+    --m3-sheet: 28px;
+    --m3-card: 16px;
+    --m3-field: 12px;
+    --m3-round: 999px;
+    /* The two bars every Material phone screen is measured against. */
+    --m3-appbar: 64px;
+    --m3-navbar: 80px;
+    --m3-gutter: 16px;
+    /* The touch target, which is a floor and not a preference. */
+    --m3-touch: 48px;
+    /* Emphasized-decelerate and standard, Material's two motion curves. */
+    --m3-emph: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --m3-std: cubic-bezier(0.2, 0, 0, 1);
+    --m3-state: 12%;
+  }
+
+  /* ── Touch feedback ───────────────────────────────────────────────────────────────────────────
+     A ripple under the finger, painted by `src/lib/touchFeedback.ts`. The host class is added by that
+     module for the duration of the animation only; `overflow: hidden` is what clips the ink to the
+     control's own shape, and it is why the ripple can be a plain absolutely-positioned span. */
+  .sard-ripple-host { position: relative; overflow: hidden; }
+  .sard-ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0;
+    transform: scale(0);
+    pointer-events: none;
+    animation: sard-ripple 480ms var(--m3-emph) forwards;
+  }
+  @keyframes sard-ripple {
+    0% { opacity: 0.22; transform: scale(0); }
+    100% { opacity: 0; transform: scale(1); }
+  }
+
+  /* THE STATE LAYER, for every control the ripple cannot reach — a disabled button, a keyboard
+     activation, or a pointer that lands and leaves before the ink can grow. An INSET SHADOW paints
+     over the control's own background without replacing it, which matters because several of these
+     controls carry a selected fill that a `background` here would erase. */
+  .libd-header-actions > button:active,
+  .libd-header-views button.libd-viewtab:active,
+  .libd-header-search button:active,
+  .libd-mobile-drawer button:active,
+  .libd-mobile-toggle:active,
+  .reader-root .rc-btn:active,
+  .gs .gs-nav-item:active,
+  .gs .gs-x:active,
+  .libd-sheet-row:active {
+    box-shadow: inset 0 0 0 100px color-mix(in srgb, currentColor var(--m3-state), transparent);
+  }
+
+  /* ── Library: the app bar ─────────────────────────────────────────────────────────────────────
+     Navigation icon, then the brand as the screen's name. `order: -1` moves the toggle to the LOGICAL
+     start, which is the right-hand edge in Arabic — the position Material puts a navigation icon in,
+     and the position a thumb expects. */
+  .libd-mobile-header {
+    min-height: var(--m3-appbar);
+    padding: 4px 4px 4px 8px;
+    padding-inline-start: max(4px, env(safe-area-inset-right));
+    padding-inline-end: max(4px, env(safe-area-inset-left));
+    padding-block-start: max(4px, env(safe-area-inset-top));
+    border-bottom: 0;
+    background: var(--chr);
+    gap: 4px;
+  }
+  .libd-chrome button.libd-mobile-toggle {
+    order: -1;
+    width: var(--m3-touch);
+    height: var(--m3-touch);
+    min-width: var(--m3-touch);
+    min-height: var(--m3-touch);
+    padding: 0;
+    border: 0;
+    border-radius: var(--m3-round);
+    background: transparent;
+    color: var(--txt);
+  }
+  /* The word goes and the mark stays: an app bar's navigation icon is an icon, drawn at the size a
+     Material navigation icon is drawn at. The label survives as the button's accessible name, which
+     is where it was always doing its real work. */
+  .libd-chrome button.libd-mobile-toggle > span { display: none; }
+  .libd-chrome button.libd-mobile-toggle svg { width: 24px; height: 24px; }
+  .libd-mobile-brand { margin-inline-start: 8px; gap: 8px; }
+  .libd-mobile-brand b { font: 600 1.25rem/1 var(--brand); }
+  .libd-mobile-brand em { font: 700 1.375rem/1 var(--brand-ar); }
+
+  /* ── Library: the header block becomes a large title over chip rows ────────────────────────────
+     It stops being a scrollable box. The title sits under the app bar at headline size, and the
+     controls below it scroll SIDEWAYS as rows of chips, which is how a Material screen carries more
+     than fits: one axis for the page, one for each dense row. */
+  .libd-chrome.libd-header {
+    max-height: none;
+    overflow: visible;
+    /* THE SEARCH BAND IS RESERVED, NOT STACKED. The field below is taken out of this container's flow
+       (see `.libd-header-search`), so the space it occupies has to be claimed here or the title would
+       slide up under it. */
+    padding: 64px var(--m3-gutter) 12px !important;
+  }
+  /* ONE LINE FOR THE TITLE, AND THE ACTIONS GET THEIR OWN ROW. The actions are CHILDREN of this
+     container (the desktop header nests them inside the title block), which is the fact that decides
+     this rule: making the container a horizontal scroller — the obvious way to keep the title to one
+     line — scrolled the actions off the screen entirely (measured at x = -160 with the row's content
+     556px wide inside 380px). So the container WRAPS, the title plate claims a full row, and the
+     action chips claim the next one, where they scroll among themselves and nothing else. */
+  .libd-header-title {
+    flex-wrap: wrap !important;
+    align-items: baseline;
+    gap: 10px !important;
+  }
+  .libd-header-title > .libd-plate { flex: 1 1 100%; min-width: 0; }
+  .libd-header-title > .libd-header-actions { flex: 1 1 100%; }
+  .libd-header-title h1 { font-size: 1.625rem !important; line-height: 1.3 !important; }
+
+  /* Actions: one row, chips, never wrapped. */
+  .libd-header-actions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    gap: 8px !important;
+    margin-block-start: 12px;
+  }
+  .libd-header-actions::-webkit-scrollbar { display: none; }
+  .libd-header-actions > button {
+    flex: none;
+    height: 40px !important;
+    min-height: 40px;
+    padding: 0 16px !important;
+    border: 1px solid var(--brd) !important;
+    border-radius: var(--m3-round) !important;
+    background: transparent;
+    font: 500 0.8125rem var(--ui) !important;
+    white-space: nowrap;
+  }
+  .libd-header-actions > button[aria-pressed="true"],
+  .libd-header-actions > button.on {
+    border-color: transparent !important;
+    background: color-mix(in srgb, var(--acc) 18%, transparent) !important;
+    color: var(--acc) !important;
+  }
+
+  /* ── Library: the search field, as a pinned pill ────────────────────────────────────────────────
+     IT LEAVES THE ROW IT WAS IN. Inside the control strip it was squeezed to its own padding — a flex
+     item with no basis in a `nowrap` row shrinks to its minimum, measured at 32px — and letting it
+     wrap gave the strip a second and third line, which cost the header 100px of a phone screen before
+     a single shelf appeared. Pinned under the app bar it keeps the width it needs, the strip below
+     collapses back to ONE scrolling row, and the field stays put as a search bar should. Nothing is
+     lost by it leaving the flow: this container does not scroll, so a static field would not have moved
+     either — what changes is only that the strip is no longer forced to share its line. */
+  .libd-header-search {
+    position: fixed;
+    inset-block-start: calc(var(--m3-appbar) + env(safe-area-inset-top) + 4px);
+    inset-inline: var(--m3-gutter);
+    z-index: 61;
+    flex: none !important;
+    min-height: 52px !important;
+    border: 0 !important;
+    border-radius: var(--m3-round) !important;
+    background: var(--soft) !important;
+    padding-inline: 16px !important;
+    gap: 12px;
+  }
+  .libd-header-search input { font-size: 1rem !important; }
+  .libd-header-search:focus-within {
+    outline: 2px solid var(--acc);
+    outline-offset: -2px;
+  }
+  .libd-header-search button {
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: var(--m3-round);
+  }
+
+  /* ── Library: view modes as a scrollable chip row ──────────────────────────────────────────────
+     The desktop draws these as a connected segmented group on a `--soft` plate; five Arabic labels do
+     not fit a phone as segments, and squeezing them is what made the old pass look reflowed. Chips
+     scroll instead, and the selected one carries the accent fill. */
+  .libd-header-views {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    gap: 8px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+  .libd-header-views::-webkit-scrollbar { display: none; }
+  .libd-header-views button.libd-viewtab {
+    flex: none;
+    height: 40px !important;
+    min-height: 40px;
+    padding: 0 14px !important;
+    border: 1px solid var(--brd) !important;
+    border-radius: var(--m3-round) !important;
+    background: transparent !important;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .libd-header-views button.libd-viewtab[aria-selected="true"] {
+    border-color: transparent !important;
+    background: var(--acc) !important;
+    color: var(--pap) !important;
+  }
+  .libd-header-views button.libd-viewtab[aria-selected="true"] svg { color: var(--pap); }
+
+  /* The view modes, the cover size, the filter and the sort share ONE scrolling row now that the
+     search has left it — five chips and a slider, which is what a phone can show of this set at once.
+     Everything in it is reachable by scrolling the row sideways, and nothing wraps into a second line. */
+  .libd-header-controls {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    gap: 8px !important;
+    margin-block-start: 0;
+  }
+  .libd-header-controls::-webkit-scrollbar { display: none; }
+  .libd-header-controls > * { flex: none; }
+  .libd-header-controls > button,
+  .libd-header-controls > div > button {
+    height: 40px !important;
+    min-height: 40px;
+    padding: 0 16px !important;
+    border: 1px solid var(--brd) !important;
+    border-radius: var(--m3-round) !important;
+    white-space: nowrap;
+  }
+  .libd-header-controls .libd-size { min-height: 40px; }
+
+  /* ── Library: the floating action button ───────────────────────────────────────────────────────
+     «إضافة كتب» is the one primary action on this screen, so it leaves the row and floats. It keeps
+     the header's own element and handler; only its placement and shape change. */
+  .libd-chrome .libd-hov-bright {
+    position: fixed;
+    inset-block-end: calc(20px + env(safe-area-inset-bottom));
+    inset-inline-end: var(--m3-gutter);
+    z-index: 80;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 56px !important;
+    padding: 0 20px !important;
+    border-radius: var(--m3-card) !important;
+    font: 600 0.9375rem var(--ui) !important;
+    box-shadow: 0 6px 18px rgba(28, 18, 8, 0.28), 0 1px 3px rgba(28, 18, 8, 0.2) !important;
+    animation: sard-fab-in 240ms var(--m3-std) both;
+  }
+  .libd-add-mark { display: inline-flex; align-items: center; }
+  /* OPACITY ONLY. The first version also scaled and translated, and the transform was still held at
+     its start value after the animation reported `finished` — a FAB 8% small and 12px low, measured
+     on the element itself. Whatever the cause, a scale is not worth a button that sits wrong: the
+     shadow and the position carry the entry, and opacity cannot leave geometry behind. */
+  @keyframes sard-fab-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  /* Room for it: the last shelf must be able to scroll clear of the button. */
+  .lib-root .lib-grid { padding-block-end: calc(96px + env(safe-area-inset-bottom)) !important; }
+
+  /* ── Library: the drawer, as a Material navigation drawer ──────────────────────────────────────
+     Rounded on its trailing corners, inset from the edge, and its rows are the navigation items:
+     full-height targets with the round indicator Material gives the current destination. */
+  .lib-sidebar.libd-mobile-drawer {
+    width: min(340px, calc(100vw - 40px)) !important;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom)) !important;
+    border-start-end-radius: var(--m3-card);
+    border-end-end-radius: var(--m3-card);
+    box-shadow: 0 8px 40px rgba(20, 14, 6, 0.32);
+    animation: sard-drawer-in 320ms var(--m3-emph) both;
+  }
+  @keyframes sard-drawer-in {
+    from { transform: translateX(8%); opacity: 0.4; }
+    to { transform: none; opacity: 1; }
+  }
+  .libd-mobile-drawer button {
+    min-height: 52px !important;
+    padding-inline: 14px !important;
+    border-radius: var(--m3-round) !important;
+    font: 500 0.9375rem var(--ui);
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .libd-mobile-drawer button[aria-current="page"],
+  .libd-mobile-drawer button[aria-selected="true"] {
+    background: color-mix(in srgb, var(--acc) 16%, transparent) !important;
+    color: var(--acc) !important;
+  }
+  .libd-mobile-drawer .lib-settings-btn { border-radius: var(--m3-round) !important; }
+
+  /* ── Every menu, panel and dialog: a modal bottom sheet ────────────────────────────────────────
+     One shape for all of them, because they are all the same thing on a phone: a temporary surface
+     that rises from the bottom edge. The scrim is painted by the sheet's own shadow — `0 0 0 100vmax`
+     is a single-colour spread large enough to cover any viewport, which saves every one of these
+     surfaces from needing a backdrop element of its own. Taps outside still reach the page, and the
+     app's existing dismissal stack is what closes the sheet, exactly as before. */
+  .libd-header-controls > div > div[style],
+  .libd-dialog,
+  .reader-root .reader-panel,
+  .reader-root .settings-panel {
+    position: fixed !important;
+    inset-inline: 0 !important;
+    inset-block-start: auto !important;
+    inset-block-end: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 88dvh !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: var(--m3-sheet) var(--m3-sheet) 0 0 !important;
+    padding-block-end: env(safe-area-inset-bottom) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow: 0 -10px 40px rgba(20, 14, 6, 0.3), 0 0 0 100vmax rgb(0 0 0 / 32%) !important;
+    /* OPAQUE, AND THAT IS NOT COSMETIC. The reader's panels are deliberately translucent on the
+       desktop — a frost over the desk beside them, which is what makes a docked drawer read as chrome
+       rather than as a second page. A sheet is not docked: it sits ON the page with a scrim behind it,
+       so the same frost let the scrim through and the whole surface turned grey (measured on the
+       device). The theme's opaque chrome colour is the value the desktop falls back to at k = 1, so
+       this is the surface's own colour and not a new one. */
+    background: var(--chrome-bg) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    animation: sard-sheet-up 320ms var(--m3-emph) both;
+  }
+  /* THE LIBRARY'S SHEETS SIT ABOVE THE FAB — and only the library's, which is why this is a separate
+     rule rather than a line in the block above. Measured: the FAB (z 80) drew straight through the
+     sort sheet and sat undimmed on top of its options, so the sheets that share a screen with it need
+     a higher number. The reader has no FAB, and its panels keep the z-index the app already gives
+     them — raising those was a mistake with a real cost: a scrim left in the DOM by a closed reader
+     (the reader unmounts, the scrim stayed) painted OVER the library and the settings screen, because
+     a z-index this layer invented was higher than the library's own. A number invented here cannot
+     know what else is on the page; the app's own values can. */
+  .libd-header-controls > div > div[style],
+  .libd-dialog {
+    z-index: 130 !important;
+  }
+  /* The settings screen is full-bleed and can be opened from the drawer, so it has to cover it. */
+  .gs { z-index: 110 !important; }
+  /* The reader's scrim keeps the app's stacking; only its weight is set here. */
+  .panel-scrim { background: rgb(0 0 0 / 32%) !important; }
+  @keyframes sard-sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+  /* The drag handle. Material puts one on every sheet, and it is also the only cue that says the
+     surface came from the bottom edge and can go back there. */
+  .libd-header-controls > div > div[style]::before,
+  .libd-dialog::before,
+  .reader-root .reader-panel::before,
+  .reader-root .settings-panel::before {
+    content: "";
+    display: block;
+    width: 32px;
+    height: 4px;
+    margin: 8px auto 4px;
+    border-radius: var(--m3-round);
+    background: color-mix(in srgb, var(--txt) 28%, transparent);
+    flex: none;
+  }
+  /* The reader's panels slide in from a side on the desktop; on a phone they rise. Both the closed
+     and the shown state are restated, because the desktop pair uses `translateX` and a `.show` rule
+     that would otherwise win. */
+  .reader-root .reader-panel,
+  .reader-root .settings-panel { transform: translateY(102%) !important; }
+  .reader-root .reader-panel.show,
+  .reader-root .settings-panel.show {
+    transform: translateY(0) !important;
+    transition: transform 320ms var(--m3-emph), visibility 0s 0s !important;
+  }
+  /* The panel's own header sits below the handle rather than against it. */
+  .reader-root .rp-head { padding-block-start: 12px; }
+  /* The reader's panels are sheets now, so the geometry the desktop reserves between the bars and
+     the heights it fills are both wrong here. */
+  .reader-root.chrome-hidden .reader-panel,
+  .reader-root.tts-playing .reader-panel { inset-block-start: auto !important; }
+
+  /* Book details is a sheet, and its two columns are already stacked by the earlier pass. */
+  .libd-dialog.book-details { max-height: 92dvh !important; }
+  .libd-dialog .book-details-head { padding-block-start: 4px !important; }
+
+  /* ── Reader: the app bar and its navigation indicators ─────────────────────────────────────────
+     Seven labelled controls fit the width, so nothing is moved or hidden — the shape is what changes.
+     Each is a Material navigation item: a wide indicator pill behind the mark, the label under it,
+     and the selected item's pill filled with the accent's container colour. */
+  .reader-root .rc-top {
+    height: var(--m3-appbar);
+    padding-inline: 6px;
+    border-bottom: 0;
+    box-shadow: 0 1px 0 var(--chrome-border);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .reader-root .rc-top::-webkit-scrollbar { display: none; }
+  .reader-root .rc-btn {
+    min-width: 52px;
+    min-height: 56px;
+    padding: 0 4px;
+    border-radius: var(--m3-card);
+    gap: 2px;
+  }
+  .reader-root .rc-btn-ico {
+    width: 44px;
+    height: 28px;
+    border-radius: var(--m3-round);
+    display: grid;
+    place-items: center;
+  }
+  .reader-root .rc-btn.on .rc-btn-ico,
+  .reader-root .rc-btn[aria-pressed="true"] .rc-btn-ico {
+    background: color-mix(in srgb, var(--acc) 22%, transparent);
+  }
+  .reader-root .rc-btn-label { font-size: 10px; line-height: 1.1; }
+
+  /* ── Reader: the progress bar, as a Material slider ────────────────────────────────────────────
+     A 4px track with a 16px knob that grows under the finger, and the whole bar lifted clear of the
+     gesture inset so the knob is never in the system's swipe zone. */
+  .reader-root .rc-bottom {
+    min-height: 60px;
+    padding: 10px var(--m3-gutter) calc(10px + env(safe-area-inset-bottom));
+    gap: 10px;
+    border-top: 0;
+    box-shadow: 0 -1px 0 var(--chrome-border);
+  }
+  .reader-root .rc-meta { font-size: 0.75rem; }
+  .reader-root .rc-progress { height: 6px; border-radius: var(--m3-round); }
+  .reader-root .rc-progress-fill { border-radius: var(--m3-round); }
+  .reader-root .rc-progress-knob {
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    box-shadow: 0 1px 4px rgba(28, 18, 8, 0.35);
+  }
+  .reader-root .rc-progress.scrubbing .rc-progress-knob,
+  .reader-root .rc-progress:active .rc-progress-knob { width: 22px; height: 22px; }
+
+  /* ── Global settings ───────────────────────────────────────────────────────────────────────────
+     The same app-bar-over-chips shape as the library, so the two screens read as one app. */
+  .gs .gs-nav { padding: 4px var(--m3-gutter) 10px; border-bottom: 0; gap: 4px; }
+  /* THE CLOSE BUTTON BELONGS TO THE TITLE'S ROW. It is rendered inside the content column, one block
+     below the navigation block, so on a phone it landed UNDER the chip row as a stray control (measured
+     at y 91 with the chips above it at y 50). Pulling the row up by its own height puts it back beside
+     the title — where a full-screen surface's close control is read as part of the app bar — and the
+     title is inset so the two never overlap. */
+  .gs .gs-topbar {
+    margin-block-start: -48px;
+    height: 48px;
+    padding: 0;
+    align-items: center;
+  }
+  .gs .gs-brand { padding-inline-end: 56px; }
+  .gs .gs-brand { padding: 0 0 8px; }
+  .gs .gs-topbar { height: auto; min-height: 44px; }
+  .gs .gs-x {
+    width: var(--m3-touch);
+    height: var(--m3-touch);
+    border-radius: var(--m3-round);
+  }
+  .gs .gs-nav-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    gap: 8px;
+  }
+  .gs .gs-nav-list::-webkit-scrollbar { display: none; }
+  .gs .gs-nav-item {
+    flex: none;
+    width: auto;
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--brd);
+    border-radius: var(--m3-round);
+    white-space: nowrap;
+  }
+  .gs .gs-nav-item[aria-current="page"],
+  .gs .gs-nav-item[aria-selected="true"],
+  .gs .gs-nav-item.on {
+    border-color: transparent;
+    background: var(--acc);
+    color: var(--pap);
+  }
+  .gs .gs-body { padding: 16px var(--m3-gutter) calc(24px + env(safe-area-inset-bottom)); }
+  .gs .gs-sec {
+    border-radius: var(--m3-card);
+    padding: 16px;
+    margin-block-end: 12px;
+  }
+  .gs input, .gs select {
+    min-height: 52px;
+    border-radius: var(--m3-field);
+    font-size: 1rem;
+  }
+  .gs .gs-fontrow { gap: 8px; }
+}
+
+/* ── Motion, when the reader has asked for less of it ──────────────────────────────────────────────
+   The ripple, the sheets, the FAB and the drawer all animate. Someone who has turned animation off in
+   the system settings gets the same surfaces with no travel — the ink still confirms the touch, it
+   just arrives instantly. */
+@media (max-width: 700px) and (prefers-reduced-motion: reduce) {
+  .sard-ripple { animation-duration: 1ms; }
+  .libd-header-controls > div > div[style],
+  .libd-dialog,
+  .reader-root .reader-panel,
+  .reader-root .settings-panel,
+  .libd-sidebar.libd-mobile-drawer,
+  .lib-sidebar.libd-mobile-drawer,
+  .libd-chrome .libd-hov-bright { animation: none; }
+}
+
+/* ── The reader's page chevrons, at a thumb's size ─────────────────────────────────────────────────
+   They are the app's own control (`Reader.tsx`), shown on a phone in scrolled flow because that mode
+   otherwise has no visible way down (see the note at `showChevrons`). The desktop's 42px circle is a
+   mouse target; a finger wants the Material floor, and the mark needs to be readable against a page of
+   text rather than a translucent bar. Phone-only, like everything else in this file. */
+@media (max-width: 700px) {
+  .reader-root .page-chevron {
+    width: 46px;
+    height: 46px;
+    font-size: 1.375rem;
+    line-height: 1;
+    /* Over the paper, not over chrome: a touch more weight than the desktop's faint resting state, so
+       the control is discoverable without becoming a mark on the page. */
+    opacity: 0.72;
+    box-shadow: 0 1px 6px rgba(28, 18, 8, 0.16);
+  }
+  .reader-root .page-chevron:active { opacity: 1; }
+  /* PHYSICAL SIDES, AND BOTH CLASSES IN THE SELECTOR. Two facts learned by measuring this on the
+     device rather than by reading the sheet:
+       * the logical form (`inset-inline-start`) put BOTH buttons in the middle of the screen
+         (computed `left` and `right` identical, 159.857px on a 366px page) — the app's own rule for
+         these buttons states a physical `left`/`right`, and a logical inset beside it does not
+         override that, it collides with it;
+       * a single class lost to whatever computes `calc(50% - 23px)` there, so the pair carries both
+         classes and wins on specificity instead of on file order.
+     Physical is also the convention these two already use everywhere else: "‹ is ALWAYS the previous
+     page and › ALWAYS the next one, in every book", so the marks do not mirror with the writing
+     direction and neither should their sides. */
+  .reader-root .page-chevron.page-chevron-left { left: 10px; right: auto; }
+  .reader-root .page-chevron.page-chevron-right { right: 10px; left: auto; }
+}

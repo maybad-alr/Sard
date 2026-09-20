@@ -29,7 +29,7 @@ const I18nContext = createContext<I18nValue | null>(null);
 /** Module-level translation, for code outside React (the i18n hook is context-bound). */
 export function translate(lang: Lang, key: TKey, vars?: Record<string, string | number>): string {
   let s = RESOURCES[lang][key] ?? en[key] ?? (key as string);
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
   return s;
 }
 

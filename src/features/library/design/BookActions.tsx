@@ -17,6 +17,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../../../i18n";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { isMobile } from "../../../lib/platform";
 import { Icon, type IconName } from "../../../components/Icon";
 import { openTransient } from "./transient";
 import { overlayHost } from "./overlay";
@@ -169,7 +170,7 @@ export function BookActions(props: BookActionsProps) {
     { label: t("lib.openBook"), icon: "bookOpen", run: props.onOpen },
     // Distinct from Open, which opens the book INSIDE Sard. This hands the file to the OS file
     // manager, revealing it where it actually lives on disk.
-    { label: t("lib.openInFolder"), icon: "folder", run: () => revealItemInDir(props.filePath).catch(() => {}) },
+    ...(!isMobile() ? [{ label: t("lib.openInFolder"), icon: "folder" as IconName, run: () => revealItemInDir(props.filePath).catch(() => {}) }] : []),
     {
       label: props.finished ? t("lib.markUnread") : t("lib.markRead"),
       icon: "check",

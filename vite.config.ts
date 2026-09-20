@@ -98,6 +98,8 @@ const BUILD_ID = process.env.SARD_BUILD_ID || "UNSET — built directly, not thr
 // answers, and widening it to `/assets/*.js` would hand the book origin the application's own bundle.
 // @ts-expect-error process is a nodejs global
 const IS_READER_HOST = process.env.SARD_BUILD_TARGET === "reader-host";
+// @ts-expect-error process is a nodejs global
+const IS_ANDROID = process.env.TAURI_ENV_PLATFORM === "android";
 
 const READER_HOST_BUILD = {
   outDir: "dist/reader-host",
@@ -122,7 +124,11 @@ export default defineConfig(async () => ({
   // outDir on EVERY build, so without this the host build copies all of `public/` a second time into
   // `dist/reader-host/` — fonts, the whole foliate-js tree, everything — producing a duplicate of the
   // bundle's own assets nested inside it. The application build already placed those files once.
-  ...(IS_READER_HOST ? { build: READER_HOST_BUILD, publicDir: false as const } : {}),
+  build: {
+    ...(IS_READER_HOST ? READER_HOST_BUILD : {}),
+    ...(IS_ANDROID ? { target: "chrome83" } : {}),
+  },
+  ...(IS_READER_HOST ? { publicDir: false as const } : {}),
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

@@ -6,7 +6,10 @@
 // row with search, the view switcher, the density steps and the sort menu — all carried over
 // with the design's own measurements.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useDialog } from "../../../components/useDialog";
+import "../../../styles/mobile-library.css";
+import "../../../styles/mobile-material.css";
 import type { CaseNode, ShelfNode, ShelfOrder } from "../../../lib/ipc";
 import { useI18n } from "../../../i18n";
 import { ProfileSwitcher } from "../../profiles/ProfileSwitcher";
@@ -158,8 +161,51 @@ const navRow = (active: boolean): React.CSSProperties => ({
   textAlign: "start",
 });
 
-export function Sidebar(props: SidebarProps) {
+export function Sidebar(incoming: SidebarProps) {
   const { t, lang } = useI18n();
+  const drawerId = useId();
+  const [phone, setPhone] = useState(() => window.matchMedia("(max-width: 700px)").matches);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const mobileOpen = phone && drawerOpen;
+  const navigationLabel = lang === "ar" ? "التنقل في المكتبة" : "Library navigation";
+  const dialog = useDialog({
+    label: navigationLabel,
+    initialFocus: "none",
+    onDismiss: () => setDrawerOpen(false),
+  });
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 700px)");
+    const update = () => {
+      setPhone(media.matches);
+      setDrawerOpen(false);
+    };
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  // Close before routing or opening another surface, including selecting the current place.
+  // Desktop uses the exact same callbacks; only the phone drawer's local state changes.
+  const leaveDrawer = <Args extends unknown[],>(action: (...args: Args) => void) => (...args: Args) => {
+    if (phone) {
+      setDrawerOpen(false);
+      setShelfMenuFor(null);
+      setManaging(null);
+    }
+    action(...args);
+  };
+  const props = {
+    ...incoming,
+    onSection: leaveDrawer(incoming.onSection),
+    onScope: leaveDrawer(incoming.onScope),
+    onSettings: leaveDrawer(incoming.onSettings),
+    onCreateCase: leaveDrawer(incoming.onCreateCase),
+    onCreateShelf: leaveDrawer(incoming.onCreateShelf),
+    onManageCase: leaveDrawer(incoming.onManageCase),
+    onManageUnfiled: leaveDrawer(incoming.onManageUnfiled),
+    onRenameCaseDialog: leaveDrawer(incoming.onRenameCaseDialog),
+    onRenameShelfDialog: leaveDrawer(incoming.onRenameShelfDialog),
+  };
 
   /** Which shelf row has its ⋯ menu open, and which is having its name typed. */
   const [shelfMenuFor, setShelfMenuFor] = useState<string | null>(null);
@@ -471,13 +517,49 @@ export function Sidebar(props: SidebarProps) {
     );
   };
 
+  useEffect(() => {
+    if (mobileOpen) return;
+    setShelfMenuFor(null);
+    setManaging(null);
+    setCaseHand(null);
+  }, [mobileOpen]);
+
   return (
-    // `.lib-sidebar` carries the BACKGROUND only. RAWY-278 makes it translucent with a
-    // blur that follows the blur slider whenever a library image is set, and that rule cannot
-    // win against an inline `background`, so this one is not set inline. The design's geometry
-    // — 244px, its own padding — is inline and so still overrides the class's own 228px.
+    <>
+    <div className="libd-mobile-header libd-chrome">
+      <div className="libd-mobile-brand" aria-label="Sard — سَرْد">
+        <Hoopoe size={22} />
+        <b>Sard</b><span aria-hidden>·</span><em lang="ar">سَرْد</em>
+      </div>
+      <button
+        type="button"
+        className="libd-mobile-toggle"
+        aria-label={navigationLabel}
+        aria-controls={drawerId}
+        aria-expanded={mobileOpen}
+        aria-haspopup="dialog"
+        onClick={() => setDrawerOpen((open) => !open)}
+      >
+        <Icon name="navLibrary" size="md" />
+        <span>{t("lib.nav.library")}</span>
+      </button>
+    </div>
+    {mobileOpen && <button
+      type="button"
+      className="libd-mobile-backdrop"
+      aria-label={t("panel.close")}
+      tabIndex={-1}
+      onClick={() => setDrawerOpen(false)}
+    />}
+    {/* `.lib-sidebar` carries the BACKGROUND only. RAWY-278 makes it translucent with a
+        blur that follows the blur slider whenever a library image is set. Desktop geometry stays inline. */}
     <aside
-      className="lib-sidebar libd-chrome"
+      id={drawerId}
+      ref={mobileOpen ? dialog.ref : undefined}
+      {...(mobileOpen ? dialog.props : {})}
+      inert={phone && !mobileOpen ? true : undefined}
+      aria-hidden={phone && !mobileOpen ? true : undefined}
+      className={`lib-sidebar libd-chrome libd-mobile-drawer${mobileOpen ? " is-open" : ""}`}
       style={{
         width: 244,
         flex: "none",
@@ -508,6 +590,14 @@ export function Sidebar(props: SidebarProps) {
           />
           <em style={{ font: "700 1.1875rem/1 var(--brand-ar)", fontStyle: "normal" }}>سَرْد</em>
         </span>
+        <button
+          type="button"
+          className="libd-mobile-close"
+          aria-label={t("panel.close")}
+          onClick={() => setDrawerOpen(false)}
+        >
+          <Icon name="close" size="md" />
+        </button>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-1)" }}>
@@ -1064,6 +1154,7 @@ export function Sidebar(props: SidebarProps) {
         </div>
       </div>
     </aside>
+    </>
   );
 }
 
@@ -1381,7 +1472,7 @@ export function Header(props: HeaderProps) {
     // over it. The ground belongs to `.lib-root`, and the scrim's own falloff already adds theme
     // weight at exactly this height so the title and search stay legible.
     <header
-      className={"libd-chrome" + (props.overEnvironment ? " libd-console" : "")}
+      className={"libd-chrome libd-header" + (props.overEnvironment ? " libd-console" : "")}
       style={{
         flex: "none",
         position: "relative",
@@ -1410,6 +1501,7 @@ export function Header(props: HeaderProps) {
           five formats. Two or more crumbs is a path out, and is drawn exactly as before. */}
       {!props.place && props.crumbs.length > 1 && (
       <div
+        className="libd-header-crumbs"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1431,7 +1523,7 @@ export function Header(props: HeaderProps) {
       </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--sp-6)" }}>
+      <div className="libd-header-title" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--sp-6)" }}>
         {/* THE ARRANGE NOTE LIVES ON THIS LINE, not on one of its own.
             It was the last child of the control row and declared `flex: 1 1 220px`, which says it
             was always meant to sit BESIDE the controls. It never could: measured at a 1600px
@@ -1474,7 +1566,7 @@ export function Header(props: HeaderProps) {
             «إضافة كتب» as its own primary action, so the toolbar's copy of it would compete with the
             one thing the screen is for. */}
         {!props.bare && (
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <div className="libd-header-actions" style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <button onClick={props.onToggleSelect} style={ctlBtn(props.mode === "select")}>
             {t("lib.select")}
           </button>
@@ -1549,6 +1641,11 @@ export function Header(props: HeaderProps) {
               opacity: props.importing ? 0.7 : 1,
             }}
           >
+            {/* THE MARK IS DRAWN ON THE PHONE ONLY, which is a layout fact rather than a taste one:
+                at this width the button leaves the header and becomes the floating action button,
+                where a label alone reads as a chip in a row of chips. Above the breakpoint the row
+                already says what the button is, and the desktop header's width is budgeted. */}
+            <span className="libd-add-mark" aria-hidden><Icon name="plus" size="md" /></span>
             {t(props.importing ? "lib.importing" : "lib.add")}
           </button>
         </div>
@@ -1559,6 +1656,7 @@ export function Header(props: HeaderProps) {
           narrowing a set of books. */}
       {!props.bare && (
       <div
+        className="libd-header-controls"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1568,6 +1666,7 @@ export function Header(props: HeaderProps) {
         }}
       >
         <div
+          className="libd-header-search"
           style={{
             display: "flex",
             alignItems: "center",
@@ -1609,7 +1708,7 @@ export function Header(props: HeaderProps) {
           )}
         </div>
 
-        <div style={groupStyle} role="tablist">
+        <div className="libd-header-views" style={groupStyle} role="tablist">
           {views.map((v) => (
             <button
               key={v.id}

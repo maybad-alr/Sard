@@ -35,6 +35,7 @@ import { GlobalSettings } from "../settings/GlobalSettings";
 import { useBookPickup } from "./design/bookPickup";
 import { BookActions, type BookActionsProps } from "./design/BookActions";
 import { UpdateRosette } from "../updater/UpdateRosette";
+import { isMobile } from "../../lib/platform";
 import { UpdateDialog } from "../updater/UpdateDialog";
 import { LibraryDesign } from "./design/LibraryDesign";
 import "../../styles/library-design.css";
@@ -365,6 +366,7 @@ export function Library({ onOpen }: { onOpen: (b: OpenTarget) => void }) {
   // drop runs the real importer. Dev-only keyboard aids force the drop / empty states for
   // capture, since PrintWindow can't screenshot a live OS drag.
   useEffect(() => {
+    if (isMobile()) return;
     let unlisten: (() => void) | undefined;
     (async () => {
       try {
@@ -628,7 +630,7 @@ export function Library({ onOpen }: { onOpen: (b: OpenTarget) => void }) {
   // PDF so a folder import matches drag-drop). Same pipeline (dedup, format-detect, managed copy); an
   // empty folder just reports "no books added".
   const addFolder = useCallback(async () => {
-    if (importing) return;
+    if (isMobile() || importing) return;
     try {
       const { open } = await import("@tauri-apps/plugin-dialog");
       const dir = await open({ directory: true, multiple: false });
@@ -679,7 +681,7 @@ export function Library({ onOpen }: { onOpen: (b: OpenTarget) => void }) {
         runImportRef.current(di.split(";").map((s) => s.trim()).filter(Boolean));
       }
       const df = await settingsGet("dev_import_folder");
-      if (df) {
+      if (df && !isMobile()) {
         await settingsSet("dev_import_folder", "");
         const results = await importFolder(df.trim());
         loadBooks();
@@ -809,8 +811,8 @@ export function Library({ onOpen }: { onOpen: (b: OpenTarget) => void }) {
         <ImportResultsPanel report={importReport} onDismiss={() => setImportReport(null)} t={t} lang={lang} />
       )}
       <GlobalSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <UpdateRosette />
-      <UpdateDialog />
+      {!isMobile() && <UpdateRosette />}
+      {!isMobile() && <UpdateDialog />}
     </>
   );
 
@@ -1094,9 +1096,11 @@ function EmptyState({ onBrowse, onFolder }: { onBrowse: () => void; onFolder: ()
         <button className="lib-btn-primary" onClick={onBrowse}>
           {t("lib.empty.browse")}
         </button>
-        <button className="lib-btn-ghost" onClick={onFolder}>
-          {t("lib.empty.folder")}
-        </button>
+        {!isMobile() && (
+          <button className="lib-btn-ghost" onClick={onFolder}>
+            {t("lib.empty.folder")}
+          </button>
+        )}
       </div>
     </div>
   );
