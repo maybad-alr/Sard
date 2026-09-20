@@ -33,7 +33,7 @@ export const LEGAL_EFFECTIVE = "with the Sard release that asks you to accept th
  * rather than edited. Quoted in the application beside the revision, which is what turns "which
  * text did this build carry?" into a question with an answer.
  */
-export const LEGAL_CONTENT_HASH = "757f0ba7c53b03aaf80c49a85bf4d637";
+export const LEGAL_CONTENT_HASH = "0a847e7f3f2b95eaa0221dca8335cd10";
 
 export const LEGAL_TERMS: LegalDocument = {
   "version": "1.2",
@@ -420,7 +420,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "While it is on, Sard sends those three things — and the email address of the account you signed in with — to that project, and keeps the key it needs to reach it in your operating system's credential store rather than in Sard's own database. Your book files are never uploaded, the text of your books is never sent, and neither are your notes or your highlights."
+      "t": "While it is on, Sard sends those three things — and the email address of the account you signed in with — to that project, and keeps the key it needs to reach it in your operating system's credential store rather than in Sard's own database. Your annotations travel with your reading, because they are part of it: your highlights, your notes they carry, and your bookmarks. Your book files are never uploaded and the text of your books is never sent — only what you did with them."
     },
     {
       "k": "p",
@@ -468,7 +468,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "li",
-      "t": "No sync unless you set it up, and never your books: only your reading position, the chapters you have read and the furthest point you reached leave your device, and only to your own project."
+      "t": "No sync unless you set it up, and never your books: only your reading — the position, the chapters you have read, the furthest point you reached, your highlights, notes and bookmarks — leaves your device, and only to your own project."
     },
     {
       "k": "li",
@@ -638,7 +638,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "وأثناء عملها يُرسل سَرْد هذه الثلاثة — مع البريد الإلكتروني للحساب الذي سجّلت به — إلى ذلك المشروع، ويحفظ المفتاح الذي يصل به إليه في مخزن مفاتيح نظام تشغيلك لا في قاعدة بيانات سَرْد. ولا تُرفَع ملفّات كتبك أبدًا، ولا يُرسَل نصّ كتبك، ولا ملاحظاتك ولا تظليلاتك."
+      "t": "وأثناء عملها يُرسل سَرْد هذه الثلاثة — مع البريد الإلكتروني للحساب الذي سجّلت به — إلى ذلك المشروع، ويحفظ المفتاح الذي يصل به إليه في مخزن مفاتيح نظام تشغيلك لا في قاعدة بيانات سَرْد. وتنتقل مع قراءتك ملاحظاتك، لأنّها جزء منها: تظليلاتك، والملاحظات التي تحملها، وإشاراتك المرجعية. أمّا ملفّات كتبك فلا تُرفَع أبدًا، ونصّ كتبك لا يُرسَل — يُرسَل ما فعلتَه بها لا هي."
     },
     {
       "k": "p",
@@ -686,7 +686,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "li",
-      "t": "لا مزامنة إلّا إذا أعددتها بنفسك، ولا كتبك أبدًا: لا يغادر جهازك إلّا موضع قراءتك والفصول التي قرأتها وأبعد نقطة وصلت إليها، وإلى مشروعك أنت فقط."
+      "t": "لا مزامنة إلّا إذا أعددتها بنفسك، ولا كتبك أبدًا: لا يغادر جهازك إلّا قراءتك — الموضع، والفصول التي قرأتها، وأبعد نقطة وصلت إليها، وتظليلاتك وملاحظاتك وإشاراتك المرجعية — وإلى مشروعك أنت فقط."
     },
     {
       "k": "li",

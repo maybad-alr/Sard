@@ -256,6 +256,14 @@ pub const MIGRATIONS: &[(i64, &str, &str)] = &[
         "sync_state",
         include_str!("migrations_sql/20260919213101_sync_state.sql"),
     ),
+    // READING-STATE SYNC (stage 2): the deletions that must travel with the marks. The three
+    // annotation tables delete rows outright, so without a record of a deletion the next pull
+    // re-creates the deleted mark from the other device's copy. One new table, nothing else touched.
+    (
+        20_260_920_070_000,
+        "sync_tombstones",
+        include_str!("migrations_sql/20260920070000_sync_tombstones.sql"),
+    ),
 ];
 
 /// Apply any not-yet-applied migrations. Safe to call on every startup.
