@@ -245,6 +245,17 @@ pub const MIGRATIONS: &[(i64, &str, &str)] = &[
         "placement_memberships",
         include_str!("migrations_sql/20260910190000_placement_memberships.sql"),
     ),
+    // READING-STATE SYNC (stage 1): what this device knows about the ACCOUNT's copy of a book —
+    // a version it last agreed with, and whether it has unpushed local state. Two new tables, no
+    // column added to an existing one, no row written, and nothing reads either table until sync is
+    // switched on. The `sync_state` table deliberately carries NO foreign key to `books`; the
+    // migration file explains why at length (a state that arrives for a book this device has not
+    // imported yet is legitimate and must survive).
+    (
+        20_260_919_213_101,
+        "sync_state",
+        include_str!("migrations_sql/20260919213101_sync_state.sql"),
+    ),
 ];
 
 /// Apply any not-yet-applied migrations. Safe to call on every startup.
