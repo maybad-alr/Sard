@@ -955,6 +955,9 @@ function SyncSection() {
         )}
 
         {note && <div className="gs-note gs-sync-note">{message(note)}</div>}
+        {/* A platform with no credential store is SAID OUT LOUD rather than left to look like a bug:
+            signing in works, syncing works, and the session ends with the process. */}
+        {account && !account.remembered && <div className="gs-note gs-sync-note">{t("gs.sync.notRemembered")}</div>}
         <div className="gs-note">{t("gs.sync.note")}</div>
       </div>
     </>

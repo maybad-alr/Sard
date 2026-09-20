@@ -25,12 +25,6 @@ pub const BUILD_KIND_BANNER: &str = "SARD DIAGNOSTIC BUILD — NOT FOR RELEASE";
 pub mod library; // repositories: books, shelves, highlights, notes, bookmarks, progress (placeholder)
 pub mod books; // file import, format detection, EPUB/PDF orchestration (placeholder)
 pub mod deposit; // reading deposits: one book, its reader's marks, and a letter, in one file
-// KINDLE BY EMAIL: send a book to the reader's Send-to-Kindle address. DESKTOP ONLY, and the gate is
-// here as well as in Cargo.toml: Amazon's only drivable route is email, the mail secret lives in the
-// OS credential store, and Android's keystore needs a bridge that ships with the mobile project. A
-// module that cannot work on a platform is not compiled there rather than compiled and broken.
-#[cfg(desktop)]
-pub mod kindle;
 pub mod metadata; // read embedded metadata + persist user overrides (placeholder)
 pub mod fonts; // register/validate custom fonts (placeholder)
 pub mod photocards; // saved photo cards: PNG store + DB rows (RAWY-52, Photo Mode part 2a)

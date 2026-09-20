@@ -1319,6 +1319,8 @@ export interface SyncAccount {
   /** The saved project, so the form opens filled. Not secrets: the key is publishable by design. */
   url: string | null;
   key: string | null;
+  /** False on a platform with no credential store: signing in works, but only for this run. */
+  remembered: boolean;
 }
 
 /**

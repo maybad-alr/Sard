@@ -140,36 +140,14 @@ windows = { version = "0.61", features = [
 # one copy and the COM vtables stay ABI-identical.
 windows-core = "0.61"
 
-# KINDLE BY EMAIL (send a book to a reader's Send-to-Kindle address).
-#
-# WHY CRATES AND NOT HAND-ROLLED SMTP. Everything else in this crate that talks a protocol was written
-# by hand where the protocol was small and the failure mode was visible. SMTP submission is neither:
-# it is STARTTLS, an AUTH exchange, CRLF and dot-stuffing rules, and a MIME multipart body whose
-# line-length limits decide whether a 3 MB book arrives intact. A mistake here does not fail loudly, it
-# silently truncates a reader's book. `lettre` is MIT, maintained, and used for exactly this.
-#
-# WHY `default-features = false`. The default set enables `native-tls`, which builds OpenSSL or
-# Schannel alongside the rustls this crate already installs as the process's TLS provider (see the
-# msedge-tts note above — two providers in one rustls is a panic this project has already paid for).
-# `rustls-tls` keeps ONE provider in the tree.
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.lettre]
-version = "0.11"
-default-features = false
-features = ["smtp-transport", "builder", "rustls-tls"]
-
-# The app password must NOT live in `sard.db`. Sard's own file is copied, backed up and moved between
-# machines, and its promise is that the reader's data is theirs and carries nothing they did not put
-# there. The OS credential store is where a secret belongs, and it is the only place this one goes: if
-# the store is unavailable the feature refuses to save rather than falling back to plaintext.
+# The sync account's refresh token must NOT live in `sard.db`. Sard's own file is copied, backed up and
+# moved between machines, and its promise is that the reader's data is theirs and carries nothing they
+# did not put there. The OS credential store is where a secret belongs, and it is the only place this
+# one goes: if the store is unavailable the feature refuses to save rather than falling back to
+# plaintext.
 # Desktop only, deliberately: Android's keystore needs a Kotlin bridge that ships with the mobile
-# project, so the feature is not offered there yet rather than offered and broken.
+# project, so signing in is not remembered there yet rather than offered and broken.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.keyring]
 version = "4"
 default-features = false
 features = ["v1", "windows-native-keyring-store", "apple-native-keyring-store", "zbus-secret-service-keyring-store"]
-
-# The test for the mail path decodes a base64 attachment out of a real SMTP conversation, so the
-# decoding has to be somebody else's code rather than a hand-rolled decoder that could be wrong in
-# the same way the code under test is. Test-only: it is not in the shipped binary.
-[dev-dependencies]
-base64 = "0.22"
