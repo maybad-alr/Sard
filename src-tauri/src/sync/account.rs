@@ -41,7 +41,7 @@ static SESSION: Mutex<Option<Session>> = Mutex::new(None);
 pub struct AccountStatus {
     /// A project URL and key are saved.
     pub configured: bool,
-    /// A refresh token is held, so a pass can start without signing in again.
+    /// A session is in hand — from the credential store, or from memory on a platform that has none.
     pub signed_in: bool,
     pub email: Option<String>,
     /// The saved project, so the form opens FILLED rather than asking a reader to find the two values
@@ -49,6 +49,10 @@ pub struct AccountStatus {
     /// feature feel unfinished.
     pub url: Option<String>,
     pub key: Option<String>,
+    /// WHETHER THIS PLATFORM CAN REMEMBER THE SESSION AT ALL. False means the reader can sign in and
+    /// sync for this run, and will be asked again at the next launch — which the interface says out
+    /// loud instead of letting it look like a bug.
+    pub remembered: bool,
 }
 
 /// The saved setup, if there is one.
@@ -78,17 +82,26 @@ pub fn save_config(conn: &Connection, config: &SupabaseConfig) -> Result<(), Str
     crate::settings::set(conn, KEY_ANON, config.anon_key.trim()).map_err(|e| e.to_string())
 }
 
-/// Read the account without a network call: what is saved, and whether a key is held for it.
+/// Read the account without a network call: what is saved, and whether a session is in hand.
+///
+/// A PLATFORM WITHOUT A CREDENTIAL STORE IS NOT AN ERROR HERE. Android has none yet, and asking about
+/// the account must not fail there — it must report the truth, which is that the session is not
+/// remembered and will have to be given again at the next launch.
 pub fn status(conn: &Connection, secrets: &dyn SecretStore) -> Result<AccountStatus, String> {
     let setup = config(conn).map_err(|e| e.to_string())?;
     let email = crate::settings::get(conn, KEY_EMAIL).map_err(|e| e.to_string())?;
-    let held = secrets.secret(supabase::SECRET_ACCOUNT).map_err(|e| e)?;
+
+    let remembered = secrets.available();
+    let stored = if remembered { secrets.secret(supabase::SECRET_ACCOUNT)? } else { None };
+    let in_memory = SESSION.lock().unwrap().is_some();
+
     Ok(AccountStatus {
         configured: setup.is_some(),
-        signed_in: held.is_some(),
+        signed_in: stored.is_some() || in_memory,
         email,
         url: setup.as_ref().map(|s| s.url.clone()),
         key: setup.as_ref().map(|s| s.anon_key.clone()),
+        remembered,
     })
 }
 
@@ -128,10 +141,13 @@ pub fn sign_up(
     }
 }
 
-/// Forget the account: the key goes, and with it the ability to start a pass. The project URL and key
-/// stay, because a reader who signs out to sign in as someone else should not have to find them again.
+/// Forget the account: the key goes if there is a store to remove it from, and the session in memory
+/// goes with it. The project URL and key stay, because a reader who signs out to sign in as someone
+/// else should not have to find them again.
 pub fn sign_out(conn: &Connection, secrets: &dyn SecretStore) -> Result<(), String> {
-    secrets.forget(supabase::SECRET_ACCOUNT)?;
+    if secrets.available() {
+        secrets.forget(supabase::SECRET_ACCOUNT)?;
+    }
     *SESSION.lock().unwrap() = None;
     for key in [KEY_EMAIL, KEY_USER_ID] {
         conn.execute("DELETE FROM settings WHERE key = ?1", [key]).map_err(|e| e.to_string())?;
@@ -163,7 +179,10 @@ fn current_session(
     if let Some(session) = SESSION.lock().unwrap().clone() {
         return Ok(Some(session));
     }
-    let Some(stored) = secrets.secret(supabase::SECRET_ACCOUNT)? else { return Ok(None) };
+    // No store means nothing was kept, so there is nothing to rebuild from — and the caller says so
+    // rather than failing at something the reader cannot fix.
+    let stored = if secrets.available() { secrets.secret(supabase::SECRET_ACCOUNT)? } else { None };
+    let Some(stored) = stored else { return Ok(None) };
     // The stored value is the refresh token and nothing else, so rebuilding means asking for a session
     // — one round trip on the first pass after a launch, and never again in that process.
     let session = supabase::sign_in_with_refresh(http, setup, &stored)?;
@@ -185,7 +204,13 @@ fn current_session(
     Ok(Some(session))
 }
 
-/// Keep a fresh session: the key in the credential store, the rest in settings and memory.
+/// Keep a fresh session: the key in the credential store when there is one, the rest in settings and
+/// memory.
+///
+/// A PLATFORM WITH NO STORE STILL GETS A WORKING SESSION. The token is held in memory for this run and
+/// written NOWHERE — which is the difference between "we cannot remember this" and "we will keep it in
+/// a file after all". The second one is the plaintext fallback this module exists to refuse, and the
+/// reader is told which of the two they are getting.
 fn adopt(
     conn: &Connection,
     secrets: &dyn SecretStore,
@@ -194,7 +219,9 @@ fn adopt(
 ) -> Result<(), String> {
     // The secret first: if the credential store refuses, the reader gets that error rather than a
     // half-saved account that cannot start a pass.
-    secrets.put(supabase::SECRET_ACCOUNT, &session.refresh_token)?;
+    if secrets.available() {
+        secrets.put(supabase::SECRET_ACCOUNT, &session.refresh_token)?;
+    }
     crate::settings::set(conn, KEY_EMAIL, email.trim()).map_err(|e| e.to_string())?;
     crate::settings::set(conn, KEY_USER_ID, &session.user_id).map_err(|e| e.to_string())?;
     *SESSION.lock().unwrap() = Some(session);
