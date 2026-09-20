@@ -25,6 +25,12 @@ pub const BUILD_KIND_BANNER: &str = "SARD DIAGNOSTIC BUILD — NOT FOR RELEASE";
 pub mod library; // repositories: books, shelves, highlights, notes, bookmarks, progress (placeholder)
 pub mod books; // file import, format detection, EPUB/PDF orchestration (placeholder)
 pub mod deposit; // reading deposits: one book, its reader's marks, and a letter, in one file
+// KINDLE BY EMAIL: send a book to the reader's Send-to-Kindle address. DESKTOP ONLY, and the gate is
+// here as well as in Cargo.toml: Amazon's only drivable route is email, the mail secret lives in the
+// OS credential store, and Android's keystore needs a bridge that ships with the mobile project. A
+// module that cannot work on a platform is not compiled there rather than compiled and broken.
+#[cfg(desktop)]
+pub mod kindle;
 pub mod metadata; // read embedded metadata + persist user overrides (placeholder)
 pub mod fonts; // register/validate custom fonts (placeholder)
 pub mod photocards; // saved photo cards: PNG store + DB rows (RAWY-52, Photo Mode part 2a)
@@ -38,8 +44,12 @@ pub mod presence; // DISC/RPC: Discord Rich Presence worker thread + the on/off 
 #[path = "presence_mobile.rs"]
 pub mod presence; // Same IPC contract, without desktop Discord IPC or a worker thread
 pub mod profiles; // PROFILES: the visual-identity registry (storage only)
+// The OS credential store — the ONE place a secret may live (the mail secret and the sync account's
+// refresh token). Shared rather than owned by either feature, so the rule cannot drift into two
+// copies that disagree. Not platform-gated: a platform without a store gets an honest refusal inside.
+pub mod secrets;
 pub mod settings; // key/value settings persistence
-pub mod sync; // FUTURE seam: backend trait only (placeholder)
+pub mod sync; // reading-state sync: the `SyncBackend` seam + the merge rules (no network yet)
 pub mod tts; // read-aloud over the Edge Read-Aloud neural voices
 pub mod webview_chrome; // RAWY-196: strip WebView2's browser chrome + accelerators (find bar, reload, print)
 pub mod window_chrome; // RAWY-118: theme the native title bar to match the app theme (DWM, Windows)
@@ -138,6 +148,12 @@ macro_rules! sard_invoke_handler {
             commands::book_register,
             commands::progress_save,
             commands::progress_get,
+            // READING-STATE SYNC: the account. `sync_now` is the only one that talks to the network,
+            // and only when the reader asks it to.
+            commands::sync_status,
+            commands::sync_connect,
+            commands::sync_now,
+            commands::sync_sign_out,
             commands::library_list_books,
             commands::collections_list,
             commands::collection_create,

@@ -26,6 +26,13 @@ import { BOOKMARK_COLORS, BOOKMARK_SHAPES, BOOKMARK_SIZE_MAX, BOOKMARK_SIZE_MIN,
 import { BookmarkShape } from "../reader/BookmarkShape";
 import { READ_MARKERS, useReadMarkerStyle } from "../../lib/readMarkerStyle"; // RAWY-256
 import { usePresence } from "../../lib/presence"; // DISC/RPC: the Discord on/off switch
+import {
+  syncConnect,
+  syncNow,
+  syncSignOut,
+  syncStatus,
+  type SyncAccount,
+} from "../../lib/ipc"; // READING-STATE SYNC: the account and one pass
 import { LegalDocuments } from "../legal/LegalDocuments";
 import {
   ARABIC_FONTS,
@@ -40,7 +47,7 @@ import { useDialog } from "../../components/useDialog";
 
 const STYLE_KEY = "reading_style";
 
-type Section = "appearance" | "profiles" | "fonts" | "bookmark" | "language" | "presence" | "about";
+type Section = "appearance" | "profiles" | "fonts" | "bookmark" | "language" | "presence" | "sync" | "about";
 // The row marks were text characters chosen for what existed, not for what the sections hold: the
 // bookmark row was a triangle, the language row was the command symbol, and six of the eight were
 // being drawn by Cambria Math with the "about" mark falling through to MS PGothic. Each is now an
@@ -58,6 +65,10 @@ const NAV: { key: Section; label: TKey; icon?: IconName; letter?: string }[] = [
   { key: "bookmark", label: "gs.nav.bookmark", icon: "bookmark" },
   { key: "language", label: "gs.nav.language", icon: "language" },
   { key: "presence", label: "gs.nav.presence", icon: "activity" },
+  // READING-STATE SYNC. The mark is an EXISTING one (`sort`, a two-way exchange) rather than a new
+  // drawing: a dedicated cloud or sync mark is a design task of its own, and borrowing a mark in the
+  // same register is the honest placeholder until someone draws it.
+  { key: "sync", label: "gs.nav.sync", icon: "sort" },
   { key: "about", label: "gs.nav.about", icon: "about" },
 ];
 
@@ -119,7 +130,13 @@ export function GlobalSettings({ open, onClose }: { open: boolean; onClose: () =
             {section === "fonts" && <FontsSection />}
             {section === "bookmark" && <BookmarkSection />}
             {section === "language" && <LanguageSection />}
+            {/* BOTH INTENTS, KEPT. develop added a Sync section; this port had already gated Presence on
+                `!isMobile()`, because Discord's rich presence is a desktop feature and the Android build
+                registers a no-op for it — showing the section on a phone would offer a switch that
+                cannot do anything. The new section is unconditional: sync is a server feature and has no
+                platform gate. */}
             {section === "presence" && !isMobile() && <PresenceSection />}
+            {section === "sync" && <SyncSection />}
             {section === "about" && <AboutSection />}
           </div>
         </div>
@@ -769,6 +786,181 @@ function LanguageSection() {
 // for a feature whose whole point is "show me, unless I say stop". Reuses the house toggle idiom
 // (`rs-toggle-row` / `BgToggle`) so the knob, the RTL pin and the a11y wiring are the ones the
 // rest of the app already uses.
+// READING-STATE SYNC (the account, and one pass).
+//
+// FOUR THINGS THIS SECTION IS CAREFUL ABOUT, each for a reason a reader would feel:
+//
+//   · It says WHAT TRAVELS before offering the form — the reading position, the chapters read, and how
+//     far they got; not their notes (not yet), not their device preferences, and never their books.
+//     A reader who is told "sync" and finds their highlights missing should have read it here first.
+//   · The password field is an ORDINARY field for an ORDINARY account password, and the section says
+//     where it goes: to the account, once, to obtain a token. Sard keeps the refresh token in the OS
+//     credential store and the password nowhere at all.
+//   · The URL field is `dir="ltr"`: it is a Latin address typed into a surface that may be Arabic, and
+//     a URL reordered by the text direction is a URL the reader cannot check.
+//   · Errors arrive as CODES from the core and are translated here. An unknown code is shown as itself
+//     rather than swallowed — a message nobody can read still beats a message nobody got.
+function SyncSection() {
+  const { t, lang } = useI18n();
+  const [account, setAccount] = useState<SyncAccount | null>(null);
+  const [form, setForm] = useState({ url: "", anonKey: "", email: "", password: "" });
+  const [create, setCreate] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ code: string; vars?: Record<string, string | number> } | null>(null);
+
+  const refresh = () => syncStatus().then(setAccount).catch(() => setAccount(null));
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  // THE FORM OPENS FILLED with the project once one has been saved: neither value is a secret, and
+  // re-typing two long strings to sign in again is the kind of chore that makes a feature feel
+  // unfinished. Only the empty fields are filled, so nothing overwrites what is being typed.
+  useEffect(() => {
+    if (!account) return;
+    setForm((current) => ({
+      ...current,
+      url: current.url || account.url || "",
+      anonKey: current.anonKey || account.key || "",
+      email: current.email || account.email || "",
+    }));
+  }, [account]);
+
+  const say = (code: string, vars?: Record<string, string | number>) => setNote({ code, vars });
+  const message = (n: { code: string; vars?: Record<string, string | number> }) =>
+    t(n.code as TKey, n.vars);
+
+  const connect = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const outcome = await syncConnect({ ...form, create });
+      await refresh();
+      say(outcome === "confirm_email" ? "gs.sync.confirmEmail" : "gs.sync.connected");
+    } catch (e) {
+      say(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const run = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const report = await syncNow();
+      const n = (words: string[]) => localeDigits(String(report.books.filter(([, o]) => words.includes(o)).length), lang);
+      if (report.books.length === 0 && report.unmatched.length === 0) {
+        say("gs.sync.inStep");
+      } else if (report.unmatched.length === 0) {
+        // The clause about other devices is left OUT rather than shown as a zero: "0 books have
+        // progress elsewhere" is noise dressed as information.
+        say("gs.sync.donePlain", {
+          pushed: n(["pushed", "both"]),
+          pulled: n(["pulled", "both"]),
+        });
+      } else {
+        say("gs.sync.done", {
+          pushed: n(["pushed", "both"]),
+          pulled: n(["pulled", "both"]),
+          unmatched: localeDigits(String(report.unmatched.length), lang),
+        });
+      }
+    } catch (e) {
+      say(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signOut = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      await syncSignOut();
+      await refresh();
+      say("gs.sync.signedOut");
+    } catch (e) {
+      say(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ready = form.url.trim() !== "" && form.anonKey.trim() !== "" && form.email.trim() !== "" && form.password !== "";
+
+  return (
+    <>
+      <SecHead>{t("gs.sync")}</SecHead>
+      <div className="gs-sec">
+        <div className="gs-note">{t("gs.sync.intro")}</div>
+
+        {account?.signedIn ? (
+          <>
+            <div className="gs-sync-who">{t("gs.sync.signedInAs", { email: account.email ?? "" })}</div>
+            <div className="gs-sync-actions">
+              <button className="gs-sync-btn" onClick={run} disabled={busy}>
+                {busy ? t("gs.sync.working") : t("gs.sync.now")}
+              </button>
+              <button className="gs-sync-btn quiet" onClick={signOut} disabled={busy}>
+                {t("gs.sync.signOut")}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Label hint={t("gs.sync.urlHint")}>{t("gs.sync.url")}</Label>
+            <input
+              className="gs-sync-input"
+              dir="ltr"
+              value={form.url}
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+              placeholder="https://…supabase.co"
+            />
+            <Label hint={t("gs.sync.keyHint")}>{t("gs.sync.key")}</Label>
+            <input
+              className="gs-sync-input"
+              dir="ltr"
+              value={form.anonKey}
+              onChange={(e) => setForm({ ...form, anonKey: e.target.value })}
+            />
+            <Label hint={t("gs.sync.emailHint")}>{t("gs.sync.email")}</Label>
+            <input
+              className="gs-sync-input"
+              dir="ltr"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+            <Label hint={t("gs.sync.passwordHint")}>{t("gs.sync.password")}</Label>
+            <input
+              className="gs-sync-input"
+              dir="ltr"
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+            <BgToggle
+              label={t("gs.sync.create")}
+              hint={t("gs.sync.createHint")}
+              on={create}
+              onToggle={() => setCreate(!create)}
+            />
+            <div className="gs-sync-actions">
+              <button className="gs-sync-btn" onClick={connect} disabled={busy || !ready}>
+                {busy ? t("gs.sync.working") : create ? t("gs.sync.createAction") : t("gs.sync.connect")}
+              </button>
+            </div>
+          </>
+        )}
+
+        {note && <div className="gs-note gs-sync-note">{message(note)}</div>}
+        <div className="gs-note">{t("gs.sync.note")}</div>
+      </div>
+    </>
+  );
+}
+
 function PresenceSection() {
   const { t } = useI18n();
   const enabled = usePresence((s) => s.enabled);

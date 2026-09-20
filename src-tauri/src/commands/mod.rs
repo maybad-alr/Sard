@@ -7,7 +7,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::db::{self, AppState};
-use crate::{backgrounds, books, deposit, fonts, library, photocards, profiles, settings};
+use crate::{backgrounds, books, deposit, fonts, library, photocards, profiles, secrets, settings, sync};
 
 // Android custody only: content URIs are staged in the app cache and handed to the normal
 // importer. Format detection, dedup and the managed copy stay in `books`.
@@ -1851,6 +1851,62 @@ pub fn reps_all(state: State<AppState>) -> Result<Vec<library::RepRow>, String> 
 pub fn refs_reps_books(state: State<AppState>) -> Result<Vec<library::RefsRepsBook>, String> {
     let conn = state.conn();
     library::refs_reps_books(&conn).map_err(err)
+}
+
+// ---- READING-STATE SYNC: the account, as the interface sees it ------------------------------------
+//
+// FOUR COMMANDS WITH NO STATE OF THEIR OWN. Everything they do lives in `sync::account`, which is
+// testable without an IPC boundary; these only carry values across it. The HTTP work is blocking and
+// runs inside an `async` command, exactly as the import commands do — a pass is a handful of requests,
+// and the alternative would be a thread pool for something that runs when a reader asks it to.
+
+/// What the interface needs to draw the account: whether it is set up, whether it can start a pass, and
+/// which email it belongs to. No network call — a settings window must not wait on one.
+#[tauri::command]
+pub fn sync_status(state: State<AppState>) -> Result<sync::account::AccountStatus, String> {
+    let conn = state.conn();
+    sync::account::status(&conn, &secrets::OsStore)
+}
+
+/// Connect the account: save the project settings and sign in — or create the account first.
+///
+/// Returns WHICH of the two happened, because they are different sentences to a reader: `signed_in`,
+/// or `confirm_email` when the project asks for a confirmed address before a session exists.
+#[tauri::command]
+pub async fn sync_connect(
+    url: String,
+    anon_key: String,
+    email: String,
+    password: String,
+    create: bool,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let setup = sync::supabase::SupabaseConfig::new(url, anon_key);
+    let conn = state.conn();
+    let store = secrets::OsStore;
+    if create {
+        return match sync::account::sign_up(&conn, &store, sync::account::http(), &setup, &email, &password)? {
+            sync::supabase::SignUp::SignedIn(_) => Ok("signed_in".to_string()),
+            sync::supabase::SignUp::ConfirmEmail => Ok("confirm_email".to_string()),
+        };
+    }
+    sync::account::sign_in(&conn, &store, sync::account::http(), &setup, &email, &password)?;
+    Ok("signed_in".to_string())
+}
+
+/// Run one pass over the library, in both directions.
+#[tauri::command]
+pub async fn sync_now(state: State<'_, AppState>) -> Result<sync::SyncReport, String> {
+    let conn = state.conn();
+    sync::account::sync_now(&conn, &secrets::OsStore, sync::account::http())
+}
+
+/// Forget the account. The project settings stay, so signing in as someone else does not mean finding
+/// them again — see `sync::account::sign_out`.
+#[tauri::command]
+pub fn sync_sign_out(state: State<AppState>) -> Result<(), String> {
+    let conn = state.conn();
+    sync::account::sign_out(&conn, &secrets::OsStore)
 }
 
 #[cfg(test)]
