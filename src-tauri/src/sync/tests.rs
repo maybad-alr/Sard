@@ -198,6 +198,29 @@ impl Device {
     fn furthest(&self, id: &str) -> Option<Furthest> {
         local::collect(&self.conn, id).unwrap().and_then(|s| s.furthest)
     }
+
+    /// Mark a passage the way the reader's own code does.
+    fn highlight(&self, cfi: &str, excerpt: &str) {
+        crate::library::highlight_create(&self.conn, BOOK, cfi, "yellow", Some(excerpt), None).unwrap();
+    }
+
+    fn highlights(&self) -> Vec<String> {
+        let mut stmt = self.conn.prepare("SELECT text_excerpt FROM highlights WHERE book_id = ?1").unwrap();
+        let rows = stmt.query_map([BOOK], |r| r.get::<_, Option<String>>(0)).unwrap();
+        rows.map(|r| r.unwrap().unwrap_or_default()).collect()
+    }
+
+    fn forget_highlight(&self, cfi: &str) {
+        let id: String = self
+            .conn
+            .query_row(
+                "SELECT id FROM highlights WHERE book_id = ?1 AND start_cfi = ?2",
+                rusqlite::params![BOOK, cfi],
+                |r| r.get(0),
+            )
+            .unwrap();
+        crate::library::highlight_delete(&self.conn, &id).unwrap();
+    }
 }
 
 /// THE HEADLINE CASE: read on one device, carry on at the same place on the other.
@@ -380,8 +403,7 @@ fn a_newer_document_is_never_merged_or_overwritten() {
         format: FORMAT + 1,
         progress: Some(Progress { cfi: Some("/6/9!".into()), fraction: Some(0.9), updated_at: 99_999 }),
         chapters_read: vec![9],
-        seen_start: vec![],
-        furthest: None,
+        ..BookState::default()
     };
     account.seed(BOOK, from_the_future.clone());
 
@@ -421,4 +443,67 @@ fn a_lost_race_is_retried_and_nothing_is_lost_in_the_retry() {
     sync_all(&desktop.conn, &account).unwrap();
     assert_eq!(desktop.chapters_read(BOOK), vec![4], "both devices agree once the dust settles");
     assert_eq!(desktop.position(BOOK).map(|(_, f)| f), Some(0.60));
+}
+
+/// THE HEADLINE CASE OF STAGE 2: a highlight made on one device arrives on the other, and a deletion
+/// made there keeps it deleted — which is the whole reason the tombstone table exists.
+#[test]
+fn a_highlight_travels_and_its_deletion_sticks() {
+    let phone = Device::new("marks_phone", &[BOOK]);
+    let desktop = Device::new("marks_desktop", &[BOOK]);
+    let account = MockBackend::new();
+
+    phone.highlight("/6/4!", "المقتبس");
+    sync_all(&phone.conn, &account).unwrap();
+    sync_all(&desktop.conn, &account).unwrap();
+    assert_eq!(desktop.highlights(), vec!["المقتبس".to_string()], "the mark arrived");
+
+    // The reader deletes it on the desktop — the row goes, and only the tombstone remembers it.
+    desktop.forget_highlight("/6/4!");
+    assert!(desktop.highlights().is_empty(), "the row is gone from the device that deleted it");
+    sync_all(&desktop.conn, &account).unwrap();
+    sync_all(&phone.conn, &account).unwrap();
+
+    assert!(
+        phone.highlights().is_empty(),
+        "the deletion travelled — without the tombstone the phone's copy would have come back"
+    );
+
+    // A third pass in the other direction does not resurrect it either: both devices hold the
+    // deletion now, and it keeps travelling.
+    sync_all(&phone.conn, &account).unwrap();
+    sync_all(&desktop.conn, &account).unwrap();
+    assert!(phone.highlights().is_empty());
+    assert!(desktop.highlights().is_empty());
+}
+
+/// A note edited on one device wins over the copy that has not been touched, because a note is the one
+/// mark whose edit carries a fresh timestamp.
+#[test]
+fn an_edited_note_wins_over_the_untouched_copy() {
+    let phone = Device::new("note_phone", &[BOOK]);
+    let desktop = Device::new("note_desktop", &[BOOK]);
+    let account = MockBackend::new();
+
+    phone
+        .conn
+        .execute(
+            "INSERT INTO notes(id, book_id, locator_cfi, body, created_at, updated_at) \
+             VALUES('n1', ?1, '/6/4!', 'ملاحظة', 100, 100)",
+            [BOOK],
+        )
+        .unwrap();
+    sync_all(&phone.conn, &account).unwrap();
+    sync_all(&desktop.conn, &account).unwrap();
+
+    desktop
+        .conn
+        .execute("UPDATE notes SET body = 'ملاحظة معدَّلة', updated_at = 200 WHERE id = 'n1'", [])
+        .unwrap();
+    crate::sync::local::touch(&desktop.conn, BOOK);
+    sync_all(&desktop.conn, &account).unwrap();
+    sync_all(&phone.conn, &account).unwrap();
+
+    let body: String = phone.conn.query_row("SELECT body FROM notes WHERE id = 'n1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(body, "ملاحظة معدَّلة", "the later edit is what both devices hold");
 }

@@ -1092,11 +1092,23 @@ pub fn highlight_create(
             text_excerpt=excluded.text_excerpt, chapter_label=excluded.chapter_label",
         rusqlite::params![id, book_id, cfi, color, excerpt, chapter, now_unix()],
     )?;
+    // READING-STATE SYNC: the mark belongs to this book, which now has something the account has not
+    // seen. Best-effort — see `sync::local::touch`.
+    crate::sync::local::touch(conn, book_id);
     get_highlight(conn, &id)
+}
+
+/// The book a mark belongs to, for the sync bookkeeping — the mark tables are keyed by the mark's own
+/// id, and a change to one of them still has to reach the book a sync pass is organised around.
+fn mark_book(conn: &Connection, sql: &str, id: &str) -> Option<String> {
+    conn.query_row(sql, [id], |r| r.get::<_, String>(0)).optional().ok().flatten()
 }
 
 pub fn highlight_set_color(conn: &Connection, id: &str, color: &str) -> rusqlite::Result<Option<HighlightRow>> {
     conn.execute("UPDATE highlights SET color = ?2 WHERE id = ?1", rusqlite::params![id, color])?;
+    if let Some(book) = mark_book(conn, "SELECT book_id FROM highlights WHERE id = ?1", id) {
+        crate::sync::local::touch(conn, &book);
+    }
     get_highlight(conn, id)
 }
 
@@ -1128,12 +1140,22 @@ pub fn highlight_set_alpha(
 ) -> rusqlite::Result<Option<HighlightRow>> {
     let a = alpha.map(alpha_for_store);
     conn.execute("UPDATE highlights SET alpha = ?2 WHERE id = ?1", rusqlite::params![id, a])?;
+    if let Some(book) = mark_book(conn, "SELECT book_id FROM highlights WHERE id = ?1", id) {
+        crate::sync::local::touch(conn, &book);
+    }
     get_highlight(conn, id)
 }
 
 pub fn highlight_delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    // READING-STATE SYNC: the book has to be named BEFORE the row goes. A deletion is the one fact
+    // these tables cannot express by themselves — absence looks exactly like "never seen" on the other
+    // device — so it is recorded with the book it belonged to, and that is what makes it travel.
+    let book = mark_book(conn, "SELECT book_id FROM highlights WHERE id = ?1", id);
     // notes.highlight_id is ON DELETE SET NULL — a note survives its highlight as a stray.
     conn.execute("DELETE FROM highlights WHERE id = ?1", [id])?;
+    if let Some(book) = book {
+        crate::sync::local::note_deleted(conn, &book, "highlight", id);
+    }
     Ok(())
 }
 
@@ -1201,12 +1223,20 @@ pub fn bookmark_create(
             color=COALESCE(excluded.color, bookmarks.color)",
         rusqlite::params![id, book_id, cfi, chapter, fraction, label, color, now_unix()],
     )?;
+    // READING-STATE SYNC: a new mark is state the account has not seen.
+    crate::sync::local::touch(conn, book_id);
     conn.query_row(&format!("SELECT {BM_COLS} FROM bookmarks WHERE id = ?1"), [&id], bookmark_row)
         .optional()
 }
 
 pub fn bookmark_delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    // READING-STATE SYNC: recorded before the row goes, with the book it belonged to — a deletion is
+    // what has to travel, and afterwards nobody can say which book it was.
+    let book = mark_book(conn, "SELECT book_id FROM bookmarks WHERE id = ?1", id);
     conn.execute("DELETE FROM bookmarks WHERE id = ?1", [id])?;
+    if let Some(book) = book {
+        crate::sync::local::note_deleted(conn, &book, "bookmark", id);
+    }
     Ok(())
 }
 
@@ -1355,6 +1385,8 @@ pub fn note_create(
          ON CONFLICT(id) DO UPDATE SET body=excluded.body, color=excluded.color, title=excluded.title, updated_at=excluded.updated_at",
         rusqlite::params![id, book_id, highlight_id, cfi, color, body, chapter, now, title],
     )?;
+    // READING-STATE SYNC: a new note is state the account has not seen.
+    crate::sync::local::touch(conn, book_id);
     get_note(conn, &id)
 }
 
@@ -1374,12 +1406,24 @@ pub fn note_update(
         "UPDATE notes SET body = ?2, color = COALESCE(?3, color), title = ?4, updated_at = ?5 WHERE id = ?1",
         rusqlite::params![id, body, color, title, now_unix()],
     )?;
+    // READING-STATE SYNC: an edited note is state the account has not seen, and this is the one mark
+    // whose edit carries a fresh `updated_at` — which is what lets the merge prefer it over the copy
+    // still sitting on the other device.
+    if let Some(book) = mark_book(conn, "SELECT book_id FROM notes WHERE id = ?1", id) {
+        crate::sync::local::touch(conn, &book);
+    }
     get_note(conn, id)
 }
 
 pub fn note_delete(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    // READING-STATE SYNC: recorded before the row goes — a deletion has to travel, and the book it
+    // belonged to cannot be asked for afterwards.
+    let book = mark_book(conn, "SELECT book_id FROM notes WHERE id = ?1", id);
     // FK note_tags.note_id -> notes(id) ON DELETE CASCADE removes this note's tag links (no orphans).
     conn.execute("DELETE FROM notes WHERE id = ?1", [id])?;
+    if let Some(book) = book {
+        crate::sync::local::note_deleted(conn, &book, "note", id);
+    }
     Ok(())
 }
 

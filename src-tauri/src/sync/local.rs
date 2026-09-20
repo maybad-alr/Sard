@@ -25,10 +25,26 @@
 
 use rusqlite::{Connection, OptionalExtension};
 
-use super::doc::{BookState, Furthest, Progress, FORMAT};
+use super::doc::{BookState, Furthest, Progress, Record, Tombstone, FORMAT};
 
 /// The per-book `settings` key prefixes that make up a book's reading state. See the module note.
 pub const PER_BOOK_KEYS: [&str; 3] = ["chapters_read:", "seen_start:", "furthest_read:"];
+
+/// The annotation tables, and the column that orders two copies of one row.
+///
+/// The ORDERING COLUMN IS PER TABLE because the tables disagree: a note records an `updated_at` and an
+/// edit to one moves it, while a highlight and a bookmark have only `created_at` — a colour change on a
+/// highlight therefore cannot claim to be newer than the other device's copy, and the tie falls to the
+/// row's own text. That is a real limitation, stated rather than hidden: two devices changing one
+/// highlight's colour in the same second settle it by content, not by time.
+const RECORD_TABLES: [(&str, &str, &str); 3] = [
+    ("highlight", "highlights", "COALESCE(created_at, 0)"),
+    ("note", "notes", "COALESCE(updated_at, created_at, 0)"),
+    ("bookmark", "bookmarks", "COALESCE(created_at, 0)"),
+];
+
+/// The column a record's time is carried in, named so `collect` can leave it out of the row itself.
+const TIME_ALIAS: &str = "__sync_time";
 
 /// The book a per-book `settings` key belongs to, or `None` when the key is not reading state.
 pub fn book_id_for_key(key: &str) -> Option<&str> {
@@ -95,6 +111,8 @@ pub fn collect(conn: &Connection, book_id: &str) -> rusqlite::Result<Option<Book
         chapters_read: read_set(conn, &format!("chapters_read:{book_id}"))?,
         seen_start: read_set(conn, &format!("seen_start:{book_id}"))?,
         furthest: read_furthest(conn, &format!("furthest_read:{book_id}"))?,
+        records: collect_records(conn, book_id)?,
+        tombstones: collect_tombstones(conn, book_id)?,
     };
     Ok(if state.is_empty() { None } else { Some(state) })
 }
@@ -192,6 +210,10 @@ pub fn apply(conn: &Connection, book_id: &str, state: &BookState) -> Result<bool
         }
     }
 
+    if apply_records(conn, book_id, &state.records, &state.tombstones)? {
+        changed = true;
+    }
+
     Ok(changed)
 }
 
@@ -214,6 +236,9 @@ pub fn pending_local(conn: &Connection) -> rusqlite::Result<Vec<String>> {
              UNION SELECT substr(key, length('chapters_read:') + 1) FROM settings WHERE key LIKE 'chapters_read:%' \
              UNION SELECT substr(key, length('seen_start:') + 1) FROM settings WHERE key LIKE 'seen_start:%' \
              UNION SELECT substr(key, length('furthest_read:') + 1) FROM settings WHERE key LIKE 'furthest_read:%' \
+             UNION SELECT book_id FROM highlights \
+             UNION SELECT book_id FROM notes \
+             UNION SELECT book_id FROM bookmarks \
              UNION SELECT book_id FROM sync_state \
          ) AS books_with_state \
          LEFT JOIN sync_state s ON s.book_id = books_with_state.book_id \
@@ -222,6 +247,163 @@ pub fn pending_local(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     )?;
     let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
     rows.collect()
+}
+
+/// The marks this device holds for a book, as rows.
+///
+/// READ WITH `SELECT *` AND BUILT COLUMN BY COLUMN, deliberately: the tables have grown columns
+/// repeatedly in this repository's history, and a hand-written column list is a list that goes stale
+/// in silence — the way a field stops travelling without anyone noticing. `TIME_ALIAS` is the one
+/// column that is not part of the row; it exists only so the ordering value arrives with the data.
+fn collect_records(conn: &Connection, book_id: &str) -> rusqlite::Result<Vec<Record>> {
+    let mut out = Vec::new();
+    for (kind, table, time) in RECORD_TABLES {
+        let mut stmt = conn.prepare(&format!(
+            "SELECT *, {time} AS {TIME_ALIAS} FROM {table} WHERE book_id = ?1 ORDER BY id"
+        ))?;
+        let names: Vec<String> = stmt.column_names().iter().map(|n| (*n).to_string()).collect();
+        let rows = stmt.query_map([book_id], |row| {
+            let mut data = serde_json::Map::new();
+            let mut updated_at = 0i64;
+            for (index, name) in names.iter().enumerate() {
+                if name == TIME_ALIAS {
+                    updated_at = row.get::<_, Option<i64>>(index)?.unwrap_or(0);
+                    continue;
+                }
+                data.insert(name.clone(), value_to_json(row.get_ref(index)?));
+            }
+            let id = row.get::<_, String>(names.iter().position(|n| n == "id").unwrap_or(0))?;
+            Ok(Record { kind: kind.to_string(), id, data: serde_json::Value::Object(data), updated_at })
+        })?;
+        for row in rows {
+            out.push(row?);
+        }
+    }
+    Ok(out)
+}
+
+/// One column, as JSON. SQLite's four storage classes are the whole vocabulary; a NULL is a JSON null.
+fn value_to_json(value: rusqlite::types::ValueRef<'_>) -> serde_json::Value {
+    use rusqlite::types::ValueRef;
+    match value {
+        ValueRef::Null => serde_json::Value::Null,
+        ValueRef::Integer(n) => serde_json::Value::from(n),
+        ValueRef::Real(f) => serde_json::Value::from(f),
+        ValueRef::Text(t) => serde_json::Value::from(String::from_utf8_lossy(t).into_owned()),
+        ValueRef::Blob(b) => serde_json::Value::from(String::from_utf8_lossy(b).into_owned()),
+    }
+}
+
+/// The deletions this device has recorded, for the books it is asked about.
+fn collect_tombstones(conn: &Connection, book_id: &str) -> rusqlite::Result<Vec<Tombstone>> {
+    let mut stmt = conn.prepare(
+        "SELECT kind, id, deleted_at FROM sync_tombstones WHERE book_id = ?1 ORDER BY kind, id",
+    )?;
+    let rows = stmt.query_map([book_id], |r| {
+        Ok(Tombstone { kind: r.get(0)?, id: r.get(1)?, deleted_at: r.get(2)? })
+    })?;
+    rows.collect()
+}
+
+/// Record that a mark was deleted, so the deletion travels instead of being undone by the next pull.
+///
+/// Called from the three delete paths — and it takes the book id rather than looking it up, because by
+/// the time it runs the row is gone and the book it belonged to is exactly what nobody can ask any
+/// more. Best-effort like `touch`: a deletion must not fail because its bookkeeping could not be
+/// written.
+pub fn note_deleted(conn: &Connection, book_id: &str, kind: &str, id: &str) {
+    let _ = conn.execute(
+        "INSERT INTO sync_tombstones(kind, id, book_id, deleted_at) VALUES(?1, ?2, ?3, unixepoch()) \
+         ON CONFLICT(kind, id) DO UPDATE SET deleted_at = excluded.deleted_at",
+        rusqlite::params![kind, id, book_id],
+    );
+    touch(conn, book_id);
+}
+
+/// Write a book's marks and deletions back: the deletions first, then the rows.
+///
+/// THE ORDER IS THE POINT. A tombstone and the row it deletes can both arrive — the row from the
+/// device that had not heard about the deletion, the tombstone from the device that made it — and
+/// applying the row last would resurrect it. Deleting first makes the tombstone's word final for that
+/// id, whatever else arrived in the same document.
+fn apply_records(
+    conn: &Connection,
+    book_id: &str,
+    records: &[Record],
+    tombstones: &[Tombstone],
+) -> Result<bool, String> {
+    let mut changed = false;
+
+    for stone in tombstones {
+        let Some((_, table, _)) = RECORD_TABLES.iter().find(|(kind, _, _)| *kind == stone.kind) else {
+            continue;
+        };
+        let removed = conn
+            .execute(&format!("DELETE FROM {table} WHERE id = ?1"), [&stone.id])
+            .map_err(|e| e.to_string())?;
+        if removed > 0 {
+            changed = true;
+        }
+        // The tombstone is kept locally too, so the deletion keeps travelling and cannot be undone
+        // here by a document that still carries the row.
+        conn.execute(
+            "INSERT INTO sync_tombstones(kind, id, book_id, deleted_at) VALUES(?1, ?2, ?3, ?4) \
+             ON CONFLICT(kind, id) DO UPDATE SET deleted_at = MAX(deleted_at, excluded.deleted_at)",
+            rusqlite::params![stone.kind, stone.id, book_id, stone.deleted_at],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    for record in records {
+        let Some((_, table, _)) = RECORD_TABLES.iter().find(|(kind, _, _)| *kind == record.kind) else {
+            continue;
+        };
+        let Some(columns) = record.data.as_object() else { continue };
+        let names: Vec<&String> = columns.keys().collect();
+        if names.is_empty() || !names.iter().any(|n| *n == "id") {
+            continue;
+        }
+        let held: Vec<String> = names.iter().map(|n| format!("{n}")).collect();
+        let placeholders: Vec<String> = (1..=names.len()).map(|i| format!("?{i}")).collect();
+        let updates: Vec<String> =
+            held.iter().filter(|n| n.as_str() != "id").map(|n| format!("{n} = excluded.{n}")).collect();
+        let sql = format!(
+            "INSERT INTO {table}({}) VALUES({}) ON CONFLICT(id) DO UPDATE SET {}",
+            held.join(", "),
+            placeholders.join(", "),
+            updates.join(", ")
+        );
+        let values: Vec<Box<dyn rusqlite::ToSql>> = names
+            .iter()
+            .map(|name| json_to_sql(&columns[name.as_str()]))
+            .collect::<Result<_, _>>()?;
+        conn.execute(&sql, rusqlite::params_from_iter(values.iter().map(|v| v.as_ref())))
+            .map_err(|e| e.to_string())?;
+        // A row was written, so this book's state on disk is not what it was. Whether the row was
+        // byte-identical is not worth a comparison: the alternative is reading it back to find out.
+        changed = true;
+    }
+
+    Ok(changed)
+}
+
+/// One JSON value, as something SQLite can store.
+fn json_to_sql(value: &serde_json::Value) -> Result<Box<dyn rusqlite::ToSql>, String> {
+    Ok(match value {
+        serde_json::Value::Null => Box::new(Option::<String>::None),
+        serde_json::Value::Bool(b) => Box::new(*b as i64),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Box::new(i)
+            } else {
+                Box::new(n.as_f64().ok_or_else(|| "sync.err.unreadable".to_string())?)
+            }
+        }
+        serde_json::Value::String(s) => Box::new(s.clone()),
+        // A nested value in a flat column cannot have come from this database, so it is not guessed
+        // at: it travels as its own JSON text rather than being dropped.
+        other => Box::new(other.to_string()),
+    })
 }
 
 /// The version the account held when this device last agreed with it, or `None` when it never has.
@@ -335,10 +517,8 @@ mod tests {
     fn apply_writes_once_and_then_leaves_the_database_alone() {
         let conn = db("apply");
         let incoming = BookState {
-            format: FORMAT,
             progress: Some(Progress { cfi: Some("/6/4!".into()), fraction: Some(0.4), updated_at: 111 }),
             chapters_read: vec![1, 2],
-            seen_start: vec![],
             furthest: Some(Furthest {
                 cfi: "/6/4!".into(),
                 fraction: 0.4,
@@ -346,6 +526,7 @@ mod tests {
                 href: None,
                 sec: 3,
             }),
+            ..BookState::default()
         };
 
         assert!(apply(&conn, BOOK, &incoming).unwrap(), "the first apply writes");
