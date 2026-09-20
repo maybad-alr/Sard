@@ -78,7 +78,65 @@ impl SecretStore for OsStore {
     }
 }
 
-#[cfg(not(desktop))]
+/// ANDROID — THE SAME RULE, REACHED A DIFFERENT WAY.
+///
+/// The desktop path lets the `v1` mode pick a store because that mode knows the desktop platforms.
+/// Android is not one of them, so the phone's store is registered here by hand: SharedPreferences
+/// encrypted with a key the Android keystore holds, spoken to over JNI by a store crate that needs no
+/// Kotlin of ours and no change to the mobile project.
+///
+/// REGISTERED ONCE, AND ITS FAILURE IS REMEMBERED. Initialization is the step that can fail (a device
+/// whose keystore refuses, a context that was never set), and `available()` answers from that same
+/// attempt — so the interface says "this device cannot remember the session" when the store really is
+/// unavailable, and never after a transient failure of something else.
+#[cfg(target_os = "android")]
+impl SecretStore for OsStore {
+    fn available(&self) -> bool {
+        android_store().is_ok()
+    }
+
+    fn secret(&self, account: &str) -> Result<Option<String>, String> {
+        let entry = android_entry(account)?;
+        match entry.get_password() {
+            Ok(value) => Ok(Some(value)),
+            Err(keyring_core::Error::NoEntry) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn put(&self, account: &str, value: &str) -> Result<(), String> {
+        android_entry(account)?.set_password(value).map_err(|e| e.to_string())
+    }
+
+    fn forget(&self, account: &str) -> Result<(), String> {
+        match android_entry(account)?.delete_credential() {
+            Ok(()) => Ok(()),
+            Err(keyring_core::Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+}
+
+/// Register the Android store, once, and remember whether it worked.
+#[cfg(target_os = "android")]
+fn android_store() -> Result<(), String> {
+    static INIT: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+    INIT.get_or_init(|| {
+        let store = android_native_keyring_store::Store::new_with_configuration(&Default::default())
+            .map_err(|e| e.to_string())?;
+        keyring_core::set_default_store(store);
+        Ok(())
+    })
+    .clone()
+}
+
+#[cfg(target_os = "android")]
+fn android_entry(account: &str) -> Result<keyring_core::Entry, String> {
+    android_store()?;
+    keyring_core::Entry::new(SERVICE, account).map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(desktop, target_os = "android")))]
 impl SecretStore for OsStore {
     fn available(&self) -> bool {
         false
