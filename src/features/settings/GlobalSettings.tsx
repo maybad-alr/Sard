@@ -31,6 +31,7 @@ import {
   syncSignOut,
   syncStatus,
   type SyncAccount,
+  type SyncReport,
 } from "../../lib/ipc"; // READING-STATE SYNC: the account and one pass
 import { LegalDocuments } from "../legal/LegalDocuments";
 import {
@@ -801,6 +802,8 @@ function SyncSection() {
   const [create, setCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ code: string; vars?: Record<string, string | number> } | null>(null);
+  /** Books the account has reading for that this library does not contain — by name, after a pass. */
+  const [missing, setMissing] = useState<SyncReport["unmatched"]>([]);
 
   const refresh = () => syncStatus().then(setAccount).catch(() => setAccount(null));
   useEffect(() => {
@@ -843,6 +846,7 @@ function SyncSection() {
     setNote(null);
     try {
       const report = await syncNow();
+      setMissing(report.unmatched);
       const n = (words: string[]) => localeDigits(String(report.books.filter(([, o]) => words.includes(o)).length), lang);
       if (report.books.length === 0 && report.unmatched.length === 0) {
         say("gs.sync.inStep");
@@ -949,6 +953,21 @@ function SyncSection() {
         )}
 
         {note && <div className="gs-note gs-sync-note">{message(note)}</div>}
+        {missing.length > 0 && (
+          <div className="gs-note gs-sync-note">
+            {t("gs.sync.missing")}
+            <ul className="gs-sync-missing">
+              {missing.slice(0, 20).map((b) => (
+                // `dir="auto"` because these are book names: an Arabic title in an English interface
+                // (or the reverse) is the normal case here, and the line must follow the name.
+                <li key={b.id} dir="auto">
+                  {b.title ?? b.id.slice(0, 12)}
+                  {b.author ? ` — ${b.author}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {/* A platform with no credential store is SAID OUT LOUD rather than left to look like a bug:
             signing in works, syncing works, and the session ends with the process. */}
         {account && !account.remembered && <div className="gs-note gs-sync-note">{t("gs.sync.notRemembered")}</div>}

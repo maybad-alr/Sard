@@ -30,7 +30,12 @@ use serde::{Deserialize, Serialize};
 /// tombstones that make their deletions travel. The bump is what keeps the two honest in both
 /// directions: a v1 document is still read here (its `records`/`tombstones` are simply empty), and a
 /// v2 document is refused by a v1 build rather than being accepted with the marks dropped.
-pub const FORMAT: u32 = 2;
+/// **3 CARRIES THE NAME OF THE BOOK.** Version 2 had the marks; version 3 adds the card — the title,
+/// the author and the format — so that a device can say WHICH book has reading on it that this library
+/// does not contain, instead of showing a reader a SHA-256 and calling it a report. Bumping the format
+/// is what keeps that honest: a v2 build, which would drop the card on the way back out, refuses the
+/// document instead.
+pub const FORMAT: u32 = 3;
 
 fn default_format() -> u32 {
     FORMAT
@@ -98,6 +103,22 @@ pub struct Record {
     pub updated_at: i64,
 }
 
+/// What the book IS, for a device that does not have it yet.
+///
+/// The document is keyed by the file's SHA-256, which is the right identity and a useless report: a
+/// reader told that "eb1f…c9 has progress on your phone" has learned nothing they can act on. The card
+/// is what turns that into a book they can recognise and go and copy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BookCard {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    /// `epub` | `pdf` — what the file is.
+    #[serde(default)]
+    pub format: Option<String>,
+}
+
 /// A deletion, which the annotation tables themselves cannot express — they delete rows outright, and
 /// absence is indistinguishable from "never seen" on the other device.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -135,6 +156,10 @@ pub struct BookState {
     /// Deletions of those marks, which the rows themselves cannot carry. See `Tombstone`.
     #[serde(default)]
     pub tombstones: Vec<Tombstone>,
+    /// What the book is called, so another device can name it. NOT counted by `is_empty`: a card on
+    /// its own is a book nobody has read, and such a book has no business on the account at all.
+    #[serde(default)]
+    pub book: Option<BookCard>,
 }
 
 impl Default for BookState {
@@ -150,6 +175,7 @@ impl Default for BookState {
             furthest: None,
             records: vec![],
             tombstones: vec![],
+            book: None,
         }
     }
 }

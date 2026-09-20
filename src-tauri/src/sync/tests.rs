@@ -145,8 +145,8 @@ impl Device {
         migrations::run(&conn, None).unwrap();
         for id in books {
             conn.execute(
-                "INSERT INTO books(id, file_path) VALUES(?1, ?2)",
-                rusqlite::params![id, format!("{id}.epub")],
+                "INSERT INTO books(id, file_path, title, author, format) VALUES(?1, ?2, ?3, ?4, 'epub')",
+                rusqlite::params![id, format!("{id}.epub"), "كتاب الاختبار", "مؤلف"],
             )
             .unwrap();
         }
@@ -316,7 +316,13 @@ fn state_for_a_book_this_device_does_not_have_waits_for_the_book() {
 
     let report = sync_all(&desktop.conn, &account).unwrap();
     assert_eq!(report.books, Vec::new(), "the desktop has no state of its own to exchange");
-    assert_eq!(report.unmatched, vec![BOOK.to_string()], "and it says so rather than inventing a book");
+    assert_eq!(report.unmatched.len(), 1, "and it says so rather than inventing a book");
+    assert_eq!(report.unmatched[0].id, BOOK, "the report names the book it cannot place");
+    assert_eq!(
+        report.unmatched[0].title.as_deref(),
+        Some("كتاب الاختبار"),
+        "and by its READER'S name, taken from the account's own card — an id alone tells them nothing"
+    );
     assert_eq!(local::remote_version(&desktop.conn, BOOK).unwrap(), None, "nothing was written");
 
     // The reader imports the book on the desktop.

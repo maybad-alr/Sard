@@ -1324,12 +1324,13 @@ export interface SyncAccount {
 }
 
 /**
- * What one pass did: `books` pairs a book id with an outcome word, and `unmatched` lists books the
- * account holds that this library does not have — state waiting for a book, not an error.
+ * What one pass did: `books` pairs a book id with an outcome word, and `unmatched` lists the books the
+ * account holds that this library does not have — by NAME, so the reader can go and fetch them. The
+ * name comes from the other device's document; it is absent when that device ran an older build.
  */
 export interface SyncReport {
   books: [string, string][];
-  unmatched: string[];
+  unmatched: { id: string; title: string | null; author: string | null; format: string | null }[];
 }
 
 export const syncStatus = (): Promise<SyncAccount> => invoke<SyncAccount>("sync_status");

@@ -25,7 +25,7 @@
 
 use rusqlite::{Connection, OptionalExtension};
 
-use super::doc::{BookState, Furthest, Progress, Record, Tombstone, FORMAT};
+use super::doc::{BookCard, BookState, Furthest, Progress, Record, Tombstone, FORMAT};
 
 /// The per-book `settings` key prefixes that make up a book's reading state. See the module note.
 pub const PER_BOOK_KEYS: [&str; 3] = ["chapters_read:", "seen_start:", "furthest_read:"];
@@ -113,8 +113,21 @@ pub fn collect(conn: &Connection, book_id: &str) -> rusqlite::Result<Option<Book
         furthest: read_furthest(conn, &format!("furthest_read:{book_id}"))?,
         records: collect_records(conn, book_id)?,
         tombstones: collect_tombstones(conn, book_id)?,
+        book: collect_card(conn, book_id)?,
     };
     Ok(if state.is_empty() { None } else { Some(state) })
+}
+
+/// What this device calls the book, so another device that does not have it can still name it.
+///
+/// Read from `books` rather than carried around: the title a reader sees is whatever this library
+/// edited it to, and `books` is the single source of that name (the repository says as much where it
+/// explains why the database and not the file holds it).
+fn collect_card(conn: &Connection, book_id: &str) -> rusqlite::Result<Option<BookCard>> {
+    conn.query_row("SELECT title, author, format FROM books WHERE id = ?1", [book_id], |r| {
+        Ok(BookCard { title: r.get(0)?, author: r.get(1)?, format: r.get(2)? })
+    })
+    .optional()
 }
 
 /// A grow-only set as the reader stores it: a JSON array of section indices.

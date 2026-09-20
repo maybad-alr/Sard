@@ -32,7 +32,7 @@
 
 use std::cmp::Ordering;
 
-use super::doc::{BookState, Furthest, Progress, Record, Tombstone, FORMAT};
+use super::doc::{BookCard, BookState, Furthest, Progress, Record, Tombstone, FORMAT};
 
 /// The document both devices end up holding, given what each of them has.
 ///
@@ -58,9 +58,34 @@ pub fn merge(local: Option<&BookState>, remote: Option<&BookState>) -> BookState
                 // a mark that one device still holds and the other has deleted comes out deleted.
                 records: without_deleted(merge_records(&a.records, &b.records), &tombstones),
                 tombstones,
+                book: merge_card(a.book.as_ref(), b.book.as_ref()),
             }
         }
     }
+}
+
+/// Which name a book travels under, when the two devices disagree.
+///
+/// The card is not reading state and has no timestamp, so "newer" has nothing to compare. What it does
+/// have to do is CONVERGE — a merge that returned one device's title on one machine and the other's on
+/// the next would rewrite the document on every pass and never settle. So a tie is broken by the card's
+/// own text, the same way the position breaks a tie by its locator: the rule only has to be the same
+/// answer on both devices, not a meaningful one. A device that renames its own copy keeps that name
+/// locally either way — the card is what OTHER devices are told.
+fn merge_card(a: Option<&BookCard>, b: Option<&BookCard>) -> Option<BookCard> {
+    match (a, b) {
+        (None, None) => None,
+        (Some(only), None) | (None, Some(only)) => Some(only.clone()),
+        (Some(x), Some(y)) => Some(if card_key(x) >= card_key(y) { x.clone() } else { y.clone() }),
+    }
+}
+
+fn card_key(card: &BookCard) -> (String, String, String) {
+    (
+        card.title.clone().unwrap_or_default(),
+        card.author.clone().unwrap_or_default(),
+        card.format.clone().unwrap_or_default(),
+    )
 }
 
 /// Every mark from both sides, one entry per id.

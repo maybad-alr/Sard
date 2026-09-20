@@ -1191,6 +1191,7 @@ export const en = {
   "gs.sync.inStep": "Everything is already in step.",
   "gs.sync.donePlain": "Sent {pushed}, received {pulled}.",
   "gs.sync.done": "Sent {pushed}, received {pulled}. {unmatched} books have progress from another device and are not in this library.",
+  "gs.sync.missing": "These books have reading on another device and are not in this library — copy their files across and import them here:",
   "gs.sync.note": "A pass runs at every launch, and the button is there for a deliberate one.",
   "gs.sync.notRemembered":
     "This device has no credential store, so the session ends when Sard closes — you will sign in again next time. Nothing is written to a file instead.",
