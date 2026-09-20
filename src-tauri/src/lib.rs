@@ -40,6 +40,10 @@ pub mod photocards; // saved photo cards: PNG store + DB rows (RAWY-52, Photo Mo
 pub mod bookhost;
 pub mod presence; // DISC/RPC: Discord Rich Presence worker thread + the on/off gate
 pub mod profiles; // PROFILES: the visual-identity registry (storage only)
+// The OS credential store — the ONE place a secret may live (the mail secret and the sync account's
+// refresh token). Shared rather than owned by either feature, so the rule cannot drift into two
+// copies that disagree. Not platform-gated: a platform without a store gets an honest refusal inside.
+pub mod secrets;
 pub mod settings; // key/value settings persistence
 pub mod sync; // reading-state sync: the `SyncBackend` seam + the merge rules (no network yet)
 pub mod tts; // read-aloud over the Edge Read-Aloud neural voices
@@ -135,6 +139,12 @@ macro_rules! sard_invoke_handler {
             commands::book_register,
             commands::progress_save,
             commands::progress_get,
+            // READING-STATE SYNC: the account. `sync_now` is the only one that talks to the network,
+            // and only when the reader asks it to.
+            commands::sync_status,
+            commands::sync_connect,
+            commands::sync_now,
+            commands::sync_sign_out,
             commands::library_list_books,
             commands::collections_list,
             commands::collection_create,

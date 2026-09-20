@@ -45,8 +45,8 @@
 //! rather than compiled and broken — a switch that cannot work is worse than one that is not there.
 
 pub mod mail;
-pub mod secrets;
-
+// The secret store is shared with the sync feature and lives at the crate root: one store, one seam,
+// one place a reader can look. See `crate::secrets` for why it is not part of this module.
 #[cfg(test)]
 mod tests;
 
@@ -55,8 +55,8 @@ use std::path::{Path, PathBuf};
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
+use crate::secrets::SecretStore;
 use mail::{Mailer, Outgoing};
-use secrets::SecretStore;
 
 /// The credential-store account name the password is filed under.
 const SECRET_ACCOUNT: &str = "kindle.smtp_password";

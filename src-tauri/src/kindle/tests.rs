@@ -17,8 +17,8 @@ use base64::Engine as _;
 use rusqlite::Connection;
 
 use super::mail::{self, Mailer, Outgoing, SmtpMailer};
-use super::secrets::SecretStore;
 use super::*;
+use crate::secrets::SecretStore;
 
 /// A distinctive value, so finding it in a file is not a coincidence.
 const SECRET: &str = "app-secret-9z7q";

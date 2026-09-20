@@ -63,6 +63,13 @@ msedge-tts = "0.4"
 # rustls, so `ClientConfig::builder()`'s auto-detection is ambiguous and PANICS (hanging the Edge WS
 # connect). We install aws-lc-rs as the explicit process default at startup to disambiguate.
 rustls = { version = "0.23", features = ["aws_lc_rs"] }
+# READING-STATE SYNC: the HTTP client the account backend speaks Supabase with. It is NOT a new
+# dependency in any real sense — the tree already compiles ureq 3 through `msedge-tts`, at this exact
+# version and with its default features (`rustls`, `gzip`), so Cargo.lock does not move. Naming it here
+# only makes explicit what was already being linked, and keeps the sync code from reaching into another
+# crate's transitive dependency. `rustls` here means the webpki root store, which works on Android
+# without a platform verifier.
+ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] }
 
 # DESKTOP-ONLY PLUGINS. All three are unavailable on Android and iOS, and one of them does not merely
 # fail at run time — it fails to COMPILE:

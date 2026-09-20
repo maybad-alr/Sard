@@ -1,16 +1,19 @@
-//! Where the mail app secret lives — and the only place it is allowed to live.
+//! Where secrets live — and the only place they are allowed to live.
 //!
-//! The trait exists so that the rule can be TESTED rather than asserted: the tests drive `save` and
-//! `send_book` with a store they can inspect, and prove the secret never reaches the database or the
-//! message. A rule with no seam is a rule that holds until someone adds a convenience.
+//! SHARED, AND DELIBERATELY NOT PART OF ANY ONE FEATURE. Two features now hold a secret: the mail
+//! secret that sends a book to a Kindle, and the sync account's refresh token. Two copies of a rule
+//! is one rule and one stale copy, so there is one store, one seam, and one place a reader can look.
+//!
+//! The trait exists so the rule can be TESTED rather than asserted: the tests drive each feature with
+//! a store they can inspect, and prove the secret never reaches the database or the message.
 
-/// The OS credential store.
+/// The OS credential store, or the honest statement that this platform has none yet.
 pub trait SecretStore {
     /// The saved secret: `Ok(None)` when there is none, `Err` when the store itself is unavailable.
     /// Those two are different answers and the caller treats them differently — "not set up yet" and
     /// "this system will not let Sard keep a secret" are not the same thing to tell a reader.
     fn secret(&self, account: &str) -> Result<Option<String>, String>;
-    /// Store it. Failing here must stop the setup: see the module note in `kindle`.
+    /// Store it. Failing here must stop the caller's setup: see the note on `OsStore` below.
     fn put(&self, account: &str, value: &str) -> Result<(), String>;
     fn forget(&self, account: &str) -> Result<(), String>;
 }
@@ -24,6 +27,17 @@ pub struct OsStore;
 
 const SERVICE: &str = "Sard";
 
+/// The one sentence every platform without a store gives, so the interface has one thing to translate.
+pub const NO_STORE: &str = "this platform has no credential store yet";
+
+/// DESKTOP ONLY, AND IT SAYS SO RATHER THAN PRETENDING.
+///
+/// Android's keystore is reached through a bridge that ships with the mobile project, which this tree
+/// does not have yet, and this crate's credential-store dependency has no backend there. A store that
+/// quietly kept the value in a file instead would be a plaintext fallback wearing the same name — and
+/// the whole point of this module is that there is no such fallback. So on a platform without a store
+/// the answer is that there is none, and the feature that needs one tells the reader.
+#[cfg(desktop)]
 impl SecretStore for OsStore {
     fn secret(&self, account: &str) -> Result<Option<String>, String> {
         let entry = keyring::Entry::new(SERVICE, account).map_err(describe)?;
@@ -54,10 +68,24 @@ impl SecretStore for OsStore {
     }
 }
 
+#[cfg(not(desktop))]
+impl SecretStore for OsStore {
+    fn secret(&self, _: &str) -> Result<Option<String>, String> {
+        Err(NO_STORE.into())
+    }
+    fn put(&self, _: &str, _: &str) -> Result<(), String> {
+        Err(NO_STORE.into())
+    }
+    fn forget(&self, _: &str) -> Result<(), String> {
+        Err(NO_STORE.into())
+    }
+}
+
 /// A message for the reader, never the platform's raw dump.
+#[cfg(desktop)]
 fn describe(error: keyring::Error) -> String {
     match error {
-        keyring::Error::NoDefaultStore => "no credential store on this platform".to_string(),
+        keyring::Error::NoDefaultStore => NO_STORE.to_string(),
         other => other.to_string(),
     }
 }
