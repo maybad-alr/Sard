@@ -1191,8 +1191,7 @@ export const en = {
   "gs.sync.inStep": "Everything is already in step.",
   "gs.sync.donePlain": "Sent {pushed}, received {pulled}.",
   "gs.sync.done": "Sent {pushed}, received {pulled}. {unmatched} books have progress from another device and are not in this library.",
-  "gs.sync.note":
-    "A pass runs at every launch, and the button is there for a deliberate one. The session is remembered on desktop; Android has no credential store yet, so there you sign in once per launch.",
+  "gs.sync.note": "A pass runs at every launch, and the button is there for a deliberate one.",
   "gs.sync.notRemembered":
     "This device has no credential store, so the session ends when Sard closes — you will sign in again next time. Nothing is written to a file instead.",
   // The core answers with codes, and these are what they say. An unknown code is shown as itself.

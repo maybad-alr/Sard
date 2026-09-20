@@ -140,9 +140,21 @@ windows-core = "0.61"
 # did not put there. The OS credential store is where a secret belongs, and it is the only place this
 # one goes: if the store is unavailable the feature refuses to save rather than falling back to
 # plaintext.
-# Desktop only, deliberately: Android's keystore needs a Kotlin bridge that ships with the mobile
-# project, so signing in is not remembered there yet rather than offered and broken.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.keyring]
 version = "4"
 default-features = false
 features = ["v1", "windows-native-keyring-store", "apple-native-keyring-store", "zbus-secret-service-keyring-store"]
+
+# ANDROID, WHERE THE STORE IS REACHED DIFFERENTLY.
+#
+# The `v1` mode above auto-selects a store for the desktop platforms it knows; Android is not one of
+# them, and this is where the phone's own store lives — SharedPreferences encrypted with a key the
+# Android keystore holds, reached over JNI. It needs NO Kotlin bridge: the store crate talks to the
+# platform itself, which is why the session can be remembered on the phone after all.
+#
+# `keyring-core` is what the store registers with, and its `Entry` is the type this crate uses there —
+# the same two calls (set the store, read or write an entry) as the desktop path, spelled the way the
+# keyring ecosystem spells them on mobile.
+[target.'cfg(target_os = "android")'.dependencies]
+keyring-core = "1"
+android-native-keyring-store = "1"
