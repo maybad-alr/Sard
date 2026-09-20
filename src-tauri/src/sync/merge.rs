@@ -32,7 +32,7 @@
 
 use std::cmp::Ordering;
 
-use super::doc::{BookState, Furthest, Progress, FORMAT};
+use super::doc::{BookState, Furthest, Progress, Record, Tombstone, FORMAT};
 
 /// The document both devices end up holding, given what each of them has.
 ///
@@ -43,15 +43,87 @@ pub fn merge(local: Option<&BookState>, remote: Option<&BookState>) -> BookState
     match (local, remote) {
         (None, None) => BookState { format: FORMAT, ..BookState::default() },
         (Some(only), None) | (None, Some(only)) => only.clone(),
-        (Some(a), Some(b)) => BookState {
-            // This build's format: a document claiming a higher one never reaches here (see `sync_one`).
-            format: FORMAT,
-            progress: merge_progress(a.progress.as_ref(), b.progress.as_ref()),
-            chapters_read: union(&a.chapters_read, &b.chapters_read),
-            seen_start: union(&a.seen_start, &b.seen_start),
-            furthest: merge_furthest(a.furthest.as_ref(), b.furthest.as_ref()),
-        },
+        (Some(a), Some(b)) => {
+            // The deletions are settled FIRST, because the marks are filtered by them below — and the
+            // filter is the whole reason stage 2 needed a table of its own.
+            let tombstones = merge_tombstones(&a.tombstones, &b.tombstones);
+            BookState {
+                // This build's format: a document claiming a higher one never reaches here (see `sync_one`).
+                format: FORMAT,
+                progress: merge_progress(a.progress.as_ref(), b.progress.as_ref()),
+                chapters_read: union(&a.chapters_read, &b.chapters_read),
+                seen_start: union(&a.seen_start, &b.seen_start),
+                furthest: merge_furthest(a.furthest.as_ref(), b.furthest.as_ref()),
+                // The marks are unioned by id, and then the deletions are applied — AFTER the union, so
+                // a mark that one device still holds and the other has deleted comes out deleted.
+                records: without_deleted(merge_records(&a.records, &b.records), &tombstones),
+                tombstones,
+            }
+        }
     }
+}
+
+/// Every mark from both sides, one entry per id.
+///
+/// TWO COPIES OF ONE MARK ARE THE SAME MARK, because the id is a UUID and both devices got it from the
+/// same row. Which copy wins is decided by `updated_at` — the edit that happened later — with the
+/// row's own text as the tie-break, for the same reason the position has one: a merge that disagrees
+/// with itself never converges, and two devices editing one note in the same second is a tie that has
+/// to be broken the same way on both.
+fn merge_records(a: &[Record], b: &[Record]) -> Vec<Record> {
+    let mut out: std::collections::BTreeMap<(String, String), Record> = std::collections::BTreeMap::new();
+    for record in a.iter().chain(b.iter()) {
+        let key = (record.kind.clone(), record.id.clone());
+        match out.get(&key) {
+            Some(held) if record_key(held) >= record_key(record) => {}
+            _ => {
+                out.insert(key, record.clone());
+            }
+        }
+    }
+    out.into_values().collect()
+}
+
+fn record_key(record: &Record) -> (i64, String) {
+    (record.updated_at, record.data.to_string())
+}
+
+/// Every deletion from both sides, keeping the LATEST time for an id deleted twice.
+fn merge_tombstones(a: &[Tombstone], b: &[Tombstone]) -> Vec<Tombstone> {
+    let mut out: std::collections::BTreeMap<(String, String), Tombstone> = std::collections::BTreeMap::new();
+    for stone in a.iter().chain(b.iter()) {
+        let key = (stone.kind.clone(), stone.id.clone());
+        match out.get(&key) {
+            Some(held) if held.deleted_at >= stone.deleted_at => {}
+            _ => {
+                out.insert(key, stone.clone());
+            }
+        }
+    }
+    out.into_values().collect()
+}
+
+/// Drop the marks that were deleted, and only those.
+///
+/// A deletion is a fact about a ROW, not about a device: the mark is gone, and the copy still sitting
+/// on the other machine is a copy of something that no longer exists. Without this the next pull
+/// re-creates it, which is the defect the tombstone table was added for.
+///
+/// The comparison is `deleted_at >= updated_at`, so a deletion recorded at the same second as the last
+/// edit wins — the deletion is the later intent. A mark whose edit is genuinely NEWER than a deletion
+/// survives, which is what keeps this from being a rule that can delete something a reader just wrote.
+fn without_deleted(records: Vec<Record>, tombstones: &[Tombstone]) -> Vec<Record> {
+    if tombstones.is_empty() {
+        return records;
+    }
+    records
+        .into_iter()
+        .filter(|record| {
+            !tombstones.iter().any(|stone| {
+                stone.kind == record.kind && stone.id == record.id && stone.deleted_at >= record.updated_at
+            })
+        })
+        .collect()
 }
 
 /// The newer move wins; an exact tie falls back to the CFI, then the fraction — see the module note.
@@ -112,11 +184,10 @@ mod tests {
 
     fn state(p: Option<Progress>, chapters: &[i64], furthest: Option<Furthest>) -> BookState {
         BookState {
-            format: FORMAT,
             progress: p,
             chapters_read: chapters.to_vec(),
-            seen_start: vec![],
             furthest,
+            ..BookState::default()
         }
     }
 
@@ -224,5 +295,87 @@ mod tests {
         let ba = serde_json::to_value(merge(Some(&b), Some(&a))).unwrap();
         assert_eq!(ab, ba, "both devices must write the same document");
         assert_eq!(merge(Some(&a), Some(&b)).chapters_read, vec![4, 9], "negative indices never travel");
+    }
+
+    // ---- the marks (stage 2) ----------------------------------------------------------------------
+
+    fn highlight(id: &str, excerpt: &str, updated_at: i64) -> Record {
+        Record {
+            kind: "highlight".into(),
+            id: id.into(),
+            data: serde_json::json!({ "id": id, "book_id": "book", "text_excerpt": excerpt }),
+            updated_at,
+        }
+    }
+
+    fn deleted(kind: &str, id: &str, deleted_at: i64) -> Tombstone {
+        Tombstone { kind: kind.into(), id: id.into(), deleted_at }
+    }
+
+    fn with_marks(records: Vec<Record>, tombstones: Vec<Tombstone>) -> BookState {
+        BookState { records, tombstones, ..BookState::default() }
+    }
+
+    /// A mark made on one device travels, and the same mark on both is one mark.
+    #[test]
+    fn a_mark_from_one_device_arrives_once_and_the_newer_copy_wins() {
+        let phone = with_marks(vec![highlight("h1", "المقتبس", 100)], vec![]);
+        let desktop = with_marks(vec![highlight("h1", "المقتبس المعدَّل", 200)], vec![]);
+
+        let merged = merge(Some(&phone), Some(&desktop));
+        assert_eq!(merged.records, vec![highlight("h1", "المقتبس المعدَّل", 200)], "the later edit wins");
+        assert_eq!(merge(Some(&desktop), Some(&phone)).records, merged.records, "and the order does not matter");
+    }
+
+    /// THE DEFECT THE TOMBSTONE TABLE EXISTS FOR. One device deletes a highlight; the other still has
+    /// it. The deletion has to win, or the mark comes back on the next pull.
+    #[test]
+    fn a_deleted_mark_does_not_come_back_from_the_copy_that_still_has_it() {
+        let deleter = with_marks(vec![], vec![deleted("highlight", "h1", 300)]);
+        let holder = with_marks(vec![highlight("h1", "المقتبس", 100)], vec![]);
+
+        let merged = merge(Some(&deleter), Some(&holder));
+        assert!(merged.records.is_empty(), "the mark stays deleted");
+        assert_eq!(merged.tombstones.len(), 1, "and the deletion is kept, so it keeps travelling");
+        assert_eq!(merge(Some(&holder), Some(&deleter)).records, Vec::new(), "in either order");
+    }
+
+    /// A deletion recorded at the same second as the last edit still wins: the deletion is the later
+    /// intent, and a tie that went the other way would resurrect a mark the reader removed.
+    #[test]
+    fn a_deletion_at_the_same_second_as_the_edit_still_wins() {
+        let deleter = with_marks(vec![], vec![deleted("note", "n1", 500)]);
+        let editor = with_marks(
+            vec![Record {
+                kind: "note".into(),
+                id: "n1".into(),
+                data: serde_json::json!({ "id": "n1", "body": "ملاحظة" }),
+                updated_at: 500,
+            }],
+            vec![],
+        );
+        assert!(merge(Some(&deleter), Some(&editor)).records.is_empty());
+    }
+
+    /// A mark whose edit is genuinely newer than a deletion survives — the rule must not be able to
+    /// delete something a reader has written since.
+    #[test]
+    fn an_edit_newer_than_a_deletion_survives() {
+        let deleter = with_marks(vec![], vec![deleted("bookmark", "b1", 400)]);
+        let editor = with_marks(
+            vec![Record { kind: "bookmark".into(), id: "b1".into(), data: serde_json::json!({}), updated_at: 600 }],
+            vec![],
+        );
+        assert_eq!(merge(Some(&deleter), Some(&editor)).records.len(), 1);
+    }
+
+    /// Marks and deletions do not interfere across kinds: deleting a note leaves a highlight that
+    /// happens to share nothing alone, and a tombstone for an id never removes another kind's row.
+    #[test]
+    fn a_tombstone_only_removes_its_own_kind() {
+        let a = with_marks(vec![highlight("x", "مقتبس", 100)], vec![]);
+        let b = with_marks(vec![], vec![deleted("note", "x", 200)]);
+
+        assert_eq!(merge(Some(&a), Some(&b)).records.len(), 1, "the highlight is untouched");
     }
 }
