@@ -132,13 +132,28 @@ impl Outcome {
     }
 }
 
+/// A book the account has reading for that this library does not contain — reported by NAME.
+///
+/// An id alone is the right key and a useless sentence to a reader, so the report carries what the
+/// other device called the book. The fields are optional because a document from a build that predates
+/// the card has nothing to say; the reader is then told how many books are missing without names,
+/// which is still better than a silent omission.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MissingBook {
+    pub id: String,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub format: Option<String>,
+}
+
 /// What a whole pass did — the shape the interface will read, and what the tests assert on.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct SyncReport {
-    /// Per book, in the order the pass visited them (`local::pending` sorts).
+    /// Per book, in the order the pass visited them (`local::pending_local` sorts).
     pub books: Vec<(String, Outcome)>,
     /// Books the account has state for that this device does not have in its library.
-    pub unmatched: Vec<String>,
+    pub unmatched: Vec<MissingBook>,
 }
 
 impl SyncReport {
@@ -227,16 +242,23 @@ pub fn sync_all(conn: &rusqlite::Connection, backend: &dyn SyncBackend) -> Resul
     for (remote_id, remote_version) in backend.versions().map_err(|e| e.to_string())? {
         if !local::book_exists(conn, &remote_id).map_err(|e| e.to_string())? {
             // State on the account for a book this library does not contain — the honest "three books
-            // have progress on your phone and are not here" line. Nothing is written, nothing is lost:
-            // it applies the moment the book is imported. Not an error.
-            report.unmatched.push(remote_id);
+            // have progress on your phone and are not here" line. Its NAME comes from the account's own
+            // document, which is the only place a device that lacks the book could learn it; a fetch
+            // that fails still reports the book, by id, rather than dropping it from the count.
+            let card = backend.fetch(&remote_id).ok().flatten().and_then(|remote| remote.doc.book);
+            report.unmatched.push(MissingBook {
+                id: remote_id,
+                title: card.as_ref().and_then(|c| c.title.clone()),
+                author: card.as_ref().and_then(|c| c.author.clone()),
+                format: card.as_ref().and_then(|c| c.format.clone()),
+            });
             continue;
         }
         if local::remote_version(conn, &remote_id).map_err(|e| e.to_string())? != Some(remote_version) {
             targets.push(remote_id);
         }
     }
-    report.unmatched.sort();
+    report.unmatched.sort_by(|a, b| a.title.cmp(&b.title).then_with(|| a.id.cmp(&b.id)));
 
     targets.sort();
     targets.dedup();

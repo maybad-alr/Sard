@@ -4478,6 +4478,9 @@ pre.reader-error-detail { width: 100%; margin: 0; white-space: pre-wrap; text-al
   color: var(--text);
 }
 .gs-sync-btn:disabled { opacity: 0.55; cursor: default; }
+.gs-sync-missing { margin: 6px 0 0; padding-inline-start: 18px; }
+.gs-sync-missing li { font: 400 var(--fs-tiny) var(--ui-font); color: var(--text); }
+
 /* A result is worth reading, an explanation is a hint: the first is `--text`, the second stays muted. */
 .gs-sync-note { color: var(--text); }
 
