@@ -482,7 +482,15 @@
     height: 48px;
     padding: 0;
     align-items: center;
+    /* AND IT MUST NOT EAT THE TAPS UNDERNEATH IT. Raising the bar onto the title's row moved a
+       full-width block over the section chips, and because it comes later in the DOM it painted above
+       them and swallowed the presses: measured on the device, `elementFromPoint` at the centre of three
+       visible chips returned `gs-topbar`, so the section a reader could SEE was the one they could not
+       press. Reported as "navigation in the settings is broken". The bar keeps its place and its looks;
+       only the close control is interactive, and the rest of the strip lets the press through. */
+    pointer-events: none;
   }
+  .gs .gs-topbar .gs-x { pointer-events: auto; }
   .gs .gs-brand { padding-inline-end: 56px; }
   .gs .gs-brand { padding: 0 0 8px; }
   .gs .gs-topbar { height: auto; min-height: 44px; }
@@ -491,15 +499,17 @@
     height: var(--m3-touch);
     border-radius: var(--m3-round);
   }
+  /* THEY WRAP INSTEAD OF SCROLLING, and the reason is measured rather than aesthetic: with the section
+     that `develop` added there are seven of these, and a single scrolling row put FOUR of them past the
+     edge of the screen (x = -129 … -415 on a 366px page) with no hint that anything was there. A
+     settings screen has to be able to show every place it can go; two short rows cost about 48px and
+     remove the search. */
   .gs .gs-nav-list {
     flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    overflow: visible;
     gap: 8px;
   }
-  .gs .gs-nav-list::-webkit-scrollbar { display: none; }
   .gs .gs-nav-item {
     flex: none;
     width: auto;
