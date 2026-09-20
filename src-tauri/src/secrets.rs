@@ -9,6 +9,16 @@
 
 /// The OS credential store, or the honest statement that this platform has none yet.
 pub trait SecretStore {
+    /// IS THERE A STORE AT ALL?
+    ///
+    /// Asked BEFORE any read or write, because "no store" and "nothing saved yet" lead to different
+    /// behaviour rather than different wording: a platform without a store keeps the session in memory
+    /// for the run and tells the reader it will not be remembered, instead of refusing to sign in at
+    /// all. The default is `true` so a test double that can hold a value need not say so.
+    fn available(&self) -> bool {
+        true
+    }
+
     /// The saved secret: `Ok(None)` when there is none, `Err` when the store itself is unavailable.
     /// Those two are different answers and the caller treats them differently — "not set up yet" and
     /// "this system will not let Sard keep a secret" are not the same thing to tell a reader.
@@ -70,6 +80,9 @@ impl SecretStore for OsStore {
 
 #[cfg(not(desktop))]
 impl SecretStore for OsStore {
+    fn available(&self) -> bool {
+        false
+    }
     fn secret(&self, _: &str) -> Result<Option<String>, String> {
         Err(NO_STORE.into())
     }

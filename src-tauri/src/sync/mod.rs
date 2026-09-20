@@ -38,6 +38,8 @@ pub mod merge;
 pub mod supabase;
 
 #[cfg(test)]
+mod account_tests;
+#[cfg(test)]
 mod supabase_tests;
 #[cfg(test)]
 mod tests;
