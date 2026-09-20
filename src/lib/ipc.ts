@@ -1304,3 +1304,50 @@ export const profileDelete = (id: string): Promise<boolean> =>
  * settings table is for, and keeping it there means switching profiles needs no schema change.
  */
 export const PROFILE_ACTIVE_KEY = "profile_active";
+
+// ---- READING-STATE SYNC ---------------------------------------------------------------------------
+//
+// The account, and one pass. Only `syncNow` and the connect call touch the network, and only when the
+// reader asks. Errors arrive as CODES (`sync.err.…`) rather than sentences: the core has no language,
+// and the interface already has one.
+
+/** What the settings window needs, with no network call behind it. */
+export interface SyncAccount {
+  configured: boolean;
+  signedIn: boolean;
+  email: string | null;
+  /** The saved project, so the form opens filled. Not secrets: the key is publishable by design. */
+  url: string | null;
+  key: string | null;
+}
+
+/**
+ * What one pass did: `books` pairs a book id with an outcome word, and `unmatched` lists books the
+ * account holds that this library does not have — state waiting for a book, not an error.
+ */
+export interface SyncReport {
+  books: [string, string][];
+  unmatched: string[];
+}
+
+export const syncStatus = (): Promise<SyncAccount> => invoke<SyncAccount>("sync_status");
+
+/**
+ * Save the project settings and sign in — or create the account first.
+ *
+ * Resolves to `signed_in` or `confirm_email`, because those are two different sentences: a project
+ * that asks for a confirmed address returns no session until the reader has clicked the link.
+ */
+export const syncConnect = (args: {
+  url: string;
+  anonKey: string;
+  email: string;
+  password: string;
+  create: boolean;
+}): Promise<string> => invoke<string>("sync_connect", args);
+
+/** Run one pass in both directions. */
+export const syncNow = (): Promise<SyncReport> => invoke<SyncReport>("sync_now");
+
+/** Forget the account. The project settings stay, so a later sign-in is a form with two fields. */
+export const syncSignOut = (): Promise<void> => invoke<void>("sync_sign_out");

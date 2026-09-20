@@ -3679,6 +3679,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "ureq",
  "webview2-com",
  "windows",
  "windows-core 0.61.2",
@@ -5151,6 +5152,7 @@ dependencies = [
  "serde_json",
  "ureq-proto",
  "utf8-zero",
+ "webpki-roots",
 ]
 
 [[package]]

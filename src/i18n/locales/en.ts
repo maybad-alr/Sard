@@ -1158,7 +1158,62 @@ export const en = {
   "gs.nav.bookmark": "Bookmark style",
   "gs.nav.language": "Language",
   "gs.nav.presence": "Activity", // DISC/RPC
+  "gs.nav.sync": "Sync",
   "gs.nav.about": "About",
+  // READING-STATE SYNC. The section says what travels BEFORE it offers a form, because a reader who is
+  // told "sync" and finds their highlights missing should have read it here first.
+  "gs.sync": "Reading sync",
+  "gs.sync.intro":
+    "Carries your reading position, the chapters you have read, and how far you got, between every device signed in to this account. Not your notes and highlights yet, not this device's appearance settings, and never your book files.",
+  "gs.sync.url": "Project URL",
+  "gs.sync.urlHint":
+    "From your project's API settings. Only http(s) is accepted, and never an address on this machine or your own network.",
+  "gs.sync.key": "Publishable key",
+  "gs.sync.keyHint":
+    "The public key from the same page. It is not a secret: what keeps your rows away from anyone else's is the database's own policies.",
+  "gs.sync.email": "Email",
+  "gs.sync.emailHint": "The account your reading is filed under.",
+  "gs.sync.password": "Password",
+  "gs.sync.passwordHint":
+    "Sent once, to your project, to obtain a token. Sard keeps the token in your system's credential store and the password nowhere at all.",
+  "gs.sync.create": "Create a new account",
+  "gs.sync.createHint":
+    "Off signs in to an account that already exists; on makes one with this email and password.",
+  "gs.sync.connect": "Sign in",
+  "gs.sync.createAction": "Create account",
+  "gs.sync.working": "Working…",
+  "gs.sync.connected": "Signed in.",
+  "gs.sync.confirmEmail": "The project emailed you a confirmation link. Open it, then sign in.",
+  "gs.sync.signedInAs": "Signed in as {email}",
+  "gs.sync.now": "Sync now",
+  "gs.sync.signOut": "Sign out",
+  "gs.sync.signedOut": "Signed out. Your reading stays here; the account keeps its own copy.",
+  "gs.sync.inStep": "Everything is already in step.",
+  "gs.sync.donePlain": "Sent {pushed}, received {pulled}.",
+  "gs.sync.done": "Sent {pushed}, received {pulled}. {unmatched} books have progress from another device and are not in this library.",
+  "gs.sync.note":
+    "A pass runs at every launch, and the button is there for a deliberate one. The session is remembered on desktop; Android has no credential store yet, so there you sign in once per launch.",
+  // The core answers with codes, and these are what they say. An unknown code is shown as itself.
+  "sync.err.badCredentials": "The email or the password is not right.",
+  "sync.err.emailNotConfirmed": "This account's email has not been confirmed yet.",
+  "sync.err.userExists":
+    "An account with this email already exists. Turn off \u201ccreate a new account\u201d and sign in instead.",
+  "sync.err.weakPassword": "The project's rules refuse this password as too weak.",
+  "sync.err.tooManyTries": "Too many attempts just now. Wait a few minutes and try again.",
+  "sync.err.sessionExpired": "The session expired. Sign in again.",
+  "sync.err.notConfigured": "No project is set up yet.",
+  "sync.err.notSignedIn": "Sign in first.",
+  "sync.err.key": "The publishable key is empty.",
+  "sync.err.urlScheme": "The URL must begin with https://",
+  "sync.err.urlShape": "That is not shaped like a project URL.",
+  "sync.err.urlLocal":
+    "That address points at this machine or at your own network, so nothing will be sent to it.",
+  "sync.err.noStore":
+    "This system would not let Sard keep the token, so signing in cannot be remembered here.",
+  "sync.err.noTable":
+    "The project answered, but the reading-state table is not there yet. Run the SQL from docs/sync-supabase.sql first.",
+  "sync.err.auth": "The project refused the request.",
+  "sync.err.unreadable": "The project's reply could not be read.",
   "gs.appearance": "Appearance",
   "gs.mode": "MODE",
   "gs.mode.day": "Day",

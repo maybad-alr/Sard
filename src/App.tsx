@@ -36,7 +36,7 @@ import { Library, type OpenTarget } from "./features/library/Library";
 import { Reader } from "./features/reader/Reader";
 import { RuntimeGate } from "./app/RuntimeGate"; // RESILIENCE-1 / WP-1
 import { canRender } from "./lib/runtime";
-import { libraryListBooks, openedFilesTake, settingsGet, settingsSet } from "./lib/ipc";
+import { libraryListBooks, openedFilesTake, settingsGet, settingsSet, syncNow } from "./lib/ipc";
 
 // RAWY-12 i18n + RAWY-13 themes + RAWY-15 Library home. First run shows the language
 // picker; afterwards the saved language/theme drive the UI and the Library is the home
@@ -58,6 +58,21 @@ function Root() {
       if (b) setOpen({ id: b.id, filePath: b.file_path, dir: b.dir, format: b.format });
     })().catch(console.error);
   }, []);
+
+  // READING-STATE SYNC, ONCE PER LAUNCH.
+  //
+  // Fired and forgotten, and every failure is silent. A reader should not have to remember a button for
+  // their position to follow them to the next device — but a pass that cannot happen must cost nothing:
+  // no account, no network, or a service having a bad day all mean the same thing here, which is that
+  // the reading continues locally exactly as it would have. The settings window keeps its own button
+  // for a deliberate pass, and that one DOES report what happened.
+  //
+  // It waits for `i18nReady`, which is the same moment the app's own bootstrap has finished — so the
+  // pass never competes with the first paint for the database or the CPU.
+  useEffect(() => {
+    if (!i18nReady) return;
+    void syncNow().catch(() => {});
+  }, [i18nReady]);
 
   // A FILE THE OPERATING SYSTEM HANDED US — one opened with "Open with Sard", dragged onto the
   // executable, or named on the command line.

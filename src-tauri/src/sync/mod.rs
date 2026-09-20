@@ -30,10 +30,15 @@
 //! it pushed nowhere. The next pass pulls it and applies it, which is the same path a second device
 //! takes, so the recovery path is the normal path rather than a repair.
 
+pub mod account;
 pub mod doc;
+pub mod http;
 pub mod local;
 pub mod merge;
+pub mod supabase;
 
+#[cfg(test)]
+mod supabase_tests;
 #[cfg(test)]
 mod tests;
 

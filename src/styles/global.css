@@ -4448,6 +4448,39 @@ pre.reader-error-detail { width: 100%; margin: 0; white-space: pre-wrap; text-al
 .gs-chip-x:hover { opacity: 1; }
 .gs-note { font: 400 var(--fs-tiny) var(--ui-font); color: var(--text-hint); }
 
+/* READING-STATE SYNC — the account: four fields, two buttons, one status line. A small block rather
+   than a new component language, and every value is a token the rest of this window already uses, so
+   it follows the theme and the text direction without a second set of rules. */
+.gs-sync-input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: var(--text);
+  font: 400 var(--fs-tiny) var(--ui-font);
+}
+.gs-sync-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.gs-sync-who { font: 600 var(--fs-tiny) var(--ui-font); color: var(--text); }
+.gs-sync-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gs-sync-btn {
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--paper-bg);
+  font: 600 var(--fs-tiny) var(--ui-font);
+  cursor: pointer;
+}
+.gs-sync-btn.quiet {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--text) 22%, transparent);
+  color: var(--text);
+}
+.gs-sync-btn:disabled { opacity: 0.55; cursor: default; }
+/* A result is worth reading, an explanation is a hint: the first is `--text`, the second stays muted. */
+.gs-sync-note { color: var(--text); }
+
 /* RAWY-93 — Fonts & Library panel, rebuilt to the on-disk design (App · Book side-by-side cards +
    the shared library grid). Wiring unchanged (RAWY-91/92); this is presentation only. */
 .gs-fh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
