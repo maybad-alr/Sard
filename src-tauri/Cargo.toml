@@ -75,6 +75,10 @@ ureq = { version = "3", default-features = false, features = ["rustls", "gzip"] 
 # Read document-picker content URIs through Android's ContentResolver, never as filesystem paths.
 tauri-plugin-fs = "2.5.1"
 percent-encoding = "2"
+# The account's refresh token: SharedPreferences encrypted with a key the Android keystore holds,
+# reached over JNI. See the note further down for why these two and not the desktop mode.
+keyring-core = "1"
+android-native-keyring-store = "1"
 
 # DESKTOP-ONLY PLUGINS. All three are unavailable on Android and iOS, and one of them does not merely
 # fail at run time — it fails to COMPILE:
@@ -160,6 +164,7 @@ features = ["v1", "windows-native-keyring-store", "apple-native-keyring-store", 
 # `keyring-core` is what the store registers with, and its `Entry` is the type this crate uses there —
 # the same two calls (set the store, read or write an entry) as the desktop path, spelled the way the
 # keyring ecosystem spells them on mobile.
-[target.'cfg(target_os = "android")'.dependencies]
-keyring-core = "1"
-android-native-keyring-store = "1"
+#
+# THE TWO CRATES ARE IN THE ANDROID SECTION ABOVE, not in a section of their own: this branch already
+# had one for the Android target, and a second one with the same key is not a merge wart TOML tolerates
+# — it is a parse error. When this branch next meets `develop`, that is the one line to watch.
