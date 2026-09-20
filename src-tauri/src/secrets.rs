@@ -1,11 +1,11 @@
 //! Where secrets live — and the only place they are allowed to live.
 //!
-//! SHARED, AND DELIBERATELY NOT PART OF ANY ONE FEATURE. Two features now hold a secret: the mail
-//! secret that sends a book to a Kindle, and the sync account's refresh token. Two copies of a rule
-//! is one rule and one stale copy, so there is one store, one seam, and one place a reader can look.
+//! NOT PART OF ANY ONE FEATURE, which is the point: the sync account's refresh token is a secret, and
+//! the next feature that holds one must find the rule already written rather than write a second copy
+//! of it beside its own code. One store, one seam, one place a reader can look.
 //!
-//! The trait exists so the rule can be TESTED rather than asserted: the tests drive each feature with
-//! a store they can inspect, and prove the secret never reaches the database or the message.
+//! The trait exists so the rule can be TESTED rather than asserted: the tests drive the feature with a
+//! store they can inspect, and prove the secret never reaches the database or the wire.
 
 /// The OS credential store, or the honest statement that this platform has none yet.
 pub trait SecretStore {
