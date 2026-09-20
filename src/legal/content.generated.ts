@@ -7,7 +7,7 @@
 //
 // and prove it still matches with `--verify`, which the test gate runs.
 //
-// Revision: terms-1.1+privacy-1.2
+// Revision: terms-1.2+privacy-1.3
 // Effective: with the Sard release that asks you to accept them
 
 /** One piece of a legal document — what it is, and what it says. */
@@ -23,7 +23,7 @@ export interface LegalDocument {
 }
 
 /** The exact pair of documents a reader is asked to accept. */
-export const LEGAL_REVISION = "terms-1.1+privacy-1.2";
+export const LEGAL_REVISION = "terms-1.2+privacy-1.3";
 
 /** When this pair takes effect, in the source's own words. */
 export const LEGAL_EFFECTIVE = "with the Sard release that asks you to accept them";
@@ -33,10 +33,10 @@ export const LEGAL_EFFECTIVE = "with the Sard release that asks you to accept th
  * rather than edited. Quoted in the application beside the revision, which is what turns "which
  * text did this build carry?" into a question with an answer.
  */
-export const LEGAL_CONTENT_HASH = "3b2626c7e5b4d98e2df167f9a1de597b";
+export const LEGAL_CONTENT_HASH = "757f0ba7c53b03aaf80c49a85bf4d637";
 
 export const LEGAL_TERMS: LegalDocument = {
-  "version": "1.1",
+  "version": "1.2",
   "en": [
     {
       "k": "eyebrow",
@@ -52,7 +52,7 @@ export const LEGAL_TERMS: LegalDocument = {
     },
     {
       "k": "stamp",
-      "t": "Version 1.1 · In effect with the Sard release that asks you to accept them"
+      "t": "Version 1.2 · In effect with the Sard release that asks you to accept them"
     },
     {
       "k": "note",
@@ -64,7 +64,7 @@ export const LEGAL_TERMS: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "They are between you and the Sard project (\"Sard\", \"we\"). They cover the Sard desktop application, this website, and any official Sard integration with another service. By installing or using Sard you accept them. If you don't, simply don't use it — there is nothing to cancel and no account to close."
+      "t": "They are between you and the Sard project (\"Sard\", \"we\"). They cover the Sard desktop application, this website, and any official Sard integration with another service. By installing or using Sard you accept them. If you don't, simply don't use it — there is nothing to cancel and no account of ours to close. If you have turned on the optional sync, that account is yours, on a service you chose; the privacy policy describes what it carries."
     },
     {
       "k": "h2",
@@ -194,7 +194,7 @@ export const LEGAL_TERMS: LegalDocument = {
     },
     {
       "k": "stamp",
-      "t": "الإصدار 1.1 · سارية مع إصدار سَرْد الذي يطلب قبولها"
+      "t": "الإصدار 1.2 · سارية مع إصدار سَرْد الذي يطلب قبولها"
     },
     {
       "k": "note",
@@ -206,7 +206,7 @@ export const LEGAL_TERMS: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "هذه الشروط بينك وبين مشروع سَرْد. وهي تشمل تطبيق سَرْد لسطح المكتب، وهذا الموقع، وأيّ تكامل رسميّ بين سَرْد وخدمة أخرى. وباستعمالك سَرْد تقبلها. وإن لم تقبلها فلا تستعمله ببساطة؛ فليس ثمّة اشتراك تُلغيه ولا حساب تُغلقه."
+      "t": "هذه الشروط بينك وبين مشروع سَرْد. وهي تشمل تطبيق سَرْد لسطح المكتب، وهذا الموقع، وأيّ تكامل رسميّ بين سَرْد وخدمة أخرى. وباستعمالك سَرْد تقبلها. وإن لم تقبلها فلا تستعمله ببساطة؛ فليس ثمّة اشتراك تُلغيه ولا حساب لنا تُغلقه. وإن كنت قد شغّلت المزامنة الاختيارية، فذاك الحساب حسابك على خدمة اخترتها أنت؛ وتصف سياسة الخصوصية ما الذي ينقله."
     },
     {
       "k": "h2",
@@ -324,7 +324,7 @@ export const LEGAL_TERMS: LegalDocument = {
 };
 
 export const LEGAL_PRIVACY: LegalDocument = {
-  "version": "1.2",
+  "version": "1.3",
   "en": [
     {
       "k": "eyebrow",
@@ -336,15 +336,15 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "lede",
-      "t": "Almost nothing, and none of it reaches us. Sard is a desktop application with no account system and no server behind it. This page describes precisely what it stores and the only occasions on which it uses the network."
+      "t": "Almost nothing, and none of it reaches us. Sard is a desktop application with no account system of its own and no server behind it. This page describes precisely what it stores and the only occasions on which it uses the network."
     },
     {
       "k": "stamp",
-      "t": "Version 1.2 · In effect with the Sard release that asks you to accept them"
+      "t": "Version 1.3 · In effect with the Sard release that asks you to accept them"
     },
     {
       "k": "note",
-      "t": "The short version. Your library, your reading positions, your notes and your highlights are files on your own computer. The Sard project has no server, receives no data, and could not read your library if it wanted to. Two features reach the internet: read-aloud, which sends the text being spoken to Microsoft's voice service, and the update check, which asks GitHub whether a newer version exists. Discord Rich Presence, which is on by default and can be switched off in settings, shows the book you are reading on your Discord profile."
+      "t": "The short version. Your library, your reading positions, your notes and your highlights are files on your own computer. The Sard project has no server, receives no data, and could not read your library if it wanted to. Three features reach the internet: read-aloud, which sends the text being spoken to Microsoft's voice service; the update check, which asks GitHub whether a newer version exists; and the optional sync, which you set up yourself and which keeps your reading in a project you control. Discord Rich Presence, which is on by default and can be switched off in settings, shows the book you are reading on your Discord profile."
     },
     {
       "k": "h2",
@@ -352,7 +352,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "Sard is a desktop ebook reader for EPUB and PDF files, currently released for Windows. It runs entirely on your computer. There is no Sard account, no Sard server, and no cloud service to sign in to — so there is no place for us to hold information about you even in principle."
+      "t": "Sard is a desktop ebook reader for EPUB and PDF files, currently released for Windows. It runs entirely on your computer. There is no Sard account of ours, no Sard server, and no cloud service we own — so there is no place for us to hold information about you even in principle. What does exist is an optional sync that you turn on yourself, pointing Sard at a project you own on a service you choose; section 3 describes it."
     },
     {
       "k": "h2",
@@ -400,7 +400,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "Two features reach the internet, and nothing else. The reading surface itself is sealed off from the network by the application's content security policy, so opening and reading a book never causes a request to leave your machine. A third feature — Discord Rich Presence, in section 4 — does send your reading activity off your device, but by way of the Discord application already running on it rather than by contacting the internet itself."
+      "t": "Three features reach the internet, and nothing else. The reading surface itself is sealed off from the network by the application's content security policy, so opening and reading a book never causes a request to leave your machine. A fourth feature — Discord Rich Presence, in section 4 — does send your reading activity off your device, but by way of the Discord application already running on it rather than by contacting the internet itself."
     },
     {
       "k": "p",
@@ -413,6 +413,18 @@ export const LEGAL_PRIVACY: LegalDocument = {
     {
       "k": "p",
       "t": "Sard asks GitHub whether a newer release exists — at most once a day while the application is open, and whenever you press the check button yourself. The request reads a small public file from the Sard releases page and contains nothing about you or your library. As with any web request, GitHub can see the IP address it came from."
+    },
+    {
+      "k": "p",
+      "t": "Sard can carry your reading between your own devices: the position you stopped at, the chapters you have read, and the furthest point you reached. It is off until you set it up, and it stays off if you never do. There is no Sard account to create: you point Sard at a project you control on a sync service of your choosing, and sign in to that."
+    },
+    {
+      "k": "p",
+      "t": "While it is on, Sard sends those three things — and the email address of the account you signed in with — to that project, and keeps the key it needs to reach it in your operating system's credential store rather than in Sard's own database. Your book files are never uploaded, the text of your books is never sent, and neither are your notes or your highlights."
+    },
+    {
+      "k": "p",
+      "t": "Because the project is yours, whatever arrives there is yours to read, export or delete, and the service hosting it is governed by its own privacy policy rather than by this one. Signing out inside Sard removes the stored key from your device and stops every future sync. Deleting the synced copy is done at the service itself — it is your project, and Sard neither can nor tries to do it for you."
     },
     {
       "k": "h2",
@@ -440,7 +452,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "li",
-      "t": "No accounts, no sign-in, no profiles."
+      "t": "No account of ours, and no sign-in unless you turn sync on: that account is yours, on a service you choose."
     },
     {
       "k": "li",
@@ -456,7 +468,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "li",
-      "t": "No cloud sync. Your library is not copied to any server."
+      "t": "No sync unless you set it up, and never your books: only your reading position, the chapters you have read and the furthest point you reached leave your device, and only to your own project."
     },
     {
       "k": "li",
@@ -487,8 +499,12 @@ export const LEGAL_PRIVACY: LegalDocument = {
       "t": "Read-aloud only sends anything while you are actually using it. Not using it sends nothing."
     },
     {
+      "k": "li",
+      "t": "Signing out of sync removes the stored key from your device and stops every future sync."
+    },
+    {
       "k": "p",
-      "t": "If you live somewhere with data-protection rights such as access, correction or erasure, those rights are exercised against whoever holds your data — and for your Sard library, that is you. We hold no copy to give you, correct, or delete."
+      "t": "If you live somewhere with data-protection rights such as access, correction or erasure, those rights are exercised against whoever holds your data — and for your Sard library, that is you. We hold no copy to give you, correct, or delete: the only copy of anything that has left your device is the one sync placed in your own project, and it is yours to erase there."
     },
     {
       "k": "h2",
@@ -496,7 +512,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "Sard is suitable for readers of any age and does not collect information from anyone, children included. It has no account system, no messaging, no social features and no advertising."
+      "t": "Sard is suitable for readers of any age and does not collect information from anyone, children included. It has no account system of its own, no messaging, no social features and no advertising."
     },
     {
       "k": "h2",
@@ -538,15 +554,15 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "lede",
-      "t": "لا شيء تقريبًا، ولا يصل إلينا منه شيء. سَرْد تطبيق لسطح المكتب بلا نظام حسابات ولا خادم خلفه. وتصف هذه الصفحة بدقّة ما الذي يحفظه، والحالات الوحيدة التي يتّصل فيها بالإنترنت."
+      "t": "لا شيء تقريبًا، ولا يصل إلينا منه شيء. سَرْد تطبيق لسطح المكتب بلا نظام حسابات خاصّ به ولا خادم خلفه. وتصف هذه الصفحة بدقّة ما الذي يحفظه، والحالات الوحيدة التي يتّصل فيها بالإنترنت."
     },
     {
       "k": "stamp",
-      "t": "الإصدار 1.2 · سارية مع إصدار سَرْد الذي يطلب قبولها"
+      "t": "الإصدار 1.3 · سارية مع إصدار سَرْد الذي يطلب قبولها"
     },
     {
       "k": "note",
-      "t": "باختصار. مكتبتك ومواضع قراءتك وملاحظاتك وتظليلاتك ملفّاتٌ على حاسوبك وحده. ومشروع سَرْد لا يملك خادمًا، ولا يستقبل أيّ بيانات، ولا يستطيع قراءة مكتبتك حتّى لو أراد. وثمّة ميزتان تتّصلان بالإنترنت: القراءة الصوتية، وهي تُرسل النصّ المنطوق إلى خدمة الأصوات من مايكروسوفت، والتحقّق من التحديثات، وهو يسأل GitHub إن كان ثمّة إصدار أحدث. أمّا تكامل Discord — وهو مُفعَّل افتراضيًّا ويمكن تعطيله من الإعدادات — فيعرض الكتاب الذي تقرؤه في ملفّك الشخصي على Discord."
+      "t": "باختصار. مكتبتك ومواضع قراءتك وملاحظاتك وتظليلاتك ملفّاتٌ على حاسوبك وحده. ومشروع سَرْد لا يملك خادمًا، ولا يستقبل أيّ بيانات، ولا يستطيع قراءة مكتبتك حتّى لو أراد. وثمّة ثلاث ميزات تتّصل بالإنترنت: القراءة الصوتية، وهي تُرسل النصّ المنطوق إلى خدمة الأصوات من مايكروسوفت؛ والتحقّق من التحديثات، وهو يسأل GitHub إن كان ثمّة إصدار أحدث؛ والمزامنة الاختيارية، وهي تُشغّلها أنت وتحفظ قراءتك في مشروع تملكه. أمّا تكامل Discord — وهو مُفعَّل افتراضيًّا ويمكن تعطيله من الإعدادات — فيعرض الكتاب الذي تقرؤه في ملفّك الشخصي على Discord."
     },
     {
       "k": "h2",
@@ -554,7 +570,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "سَرْد قارئ كتب إلكترونية لسطح المكتب، يفتح ملفّات EPUB وPDF، وهو متاح حاليًّا لنظام ويندوز. يعمل بالكامل على حاسوبك. ولا يوجد حساب في سَرْد، ولا خادم له، ولا خدمة سحابية تُسجّل الدخول إليها — فلا مكان لدينا أصلًا نحفظ فيه معلومات عنك."
+      "t": "سَرْد قارئ كتب إلكترونية لسطح المكتب، يفتح ملفّات EPUB وPDF، وهو متاح حاليًّا لنظام ويندوز. يعمل بالكامل على حاسوبك. ولا يوجد حساب لنا فيه، ولا خادم لنا، ولا خدمة سحابية نملكها — فلا مكان لدينا أصلًا نحفظ فيه معلومات عنك. وثمّة مزامنة اختيارية تُشغّلها أنت في مشروعك الخاصّ على خدمة تختارها؛ وتفصيلها في البند الثالث."
     },
     {
       "k": "h2",
@@ -602,7 +618,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "ميزتان تتّصلان بالإنترنت لا ثالثة لهما. أمّا سطح القراءة نفسه فمعزول عن الشبكة بسياسة أمن المحتوى في التطبيق، فلا يُسبّب فتحُ كتابٍ وقراءتُه أيّ طلبٍ يغادر جهازك. وثمّة ميزة ثالثة — تكامل Discord في البند ٤ — تُخرج نشاط قراءتك من جهازك، لكن عبر تطبيق Discord العامل عليه لا باتّصالها بالإنترنت بنفسها."
+      "t": "ثلاث ميزات تتّصل بالإنترنت لا رابعة لها. أمّا سطح القراءة نفسه فمعزول عن الشبكة بسياسة أمن المحتوى في التطبيق، فلا يُسبّب فتحُ كتابٍ وقراءتُه أيّ طلبٍ يغادر جهازك. وثمّة ميزة رابعة — تكامل Discord في البند ٤ — تُخرج نشاط قراءتك من جهازك، لكن عبر تطبيق Discord العامل عليه لا باتّصالها بالإنترنت بنفسها."
     },
     {
       "k": "p",
@@ -615,6 +631,18 @@ export const LEGAL_PRIVACY: LegalDocument = {
     {
       "k": "p",
       "t": "يسأل سَرْد موقع GitHub إن كان ثمّة إصدار أحدث — مرّة واحدة في اليوم على الأكثر ما دام التطبيق مفتوحًا، وكلّما ضغطتَ زرّ التحقّق بنفسك. ويقرأ الطلبُ ملفًّا عامًّا صغيرًا من صفحة إصدارات سَرْد، ولا يحمل شيئًا عنك ولا عن مكتبتك. وكما هو الحال في أيّ طلب على الويب، يستطيع GitHub رؤية عنوان IP الذي جاء منه."
+    },
+    {
+      "k": "p",
+      "t": "يستطيع سَرْد نقل قراءتك بين أجهزتك: الموضع الذي توقّفت عنده، والفصول التي قرأتها، وأبعد نقطة وصلت إليها. وهي متوقّفة حتى تُشغّلها أنت، وتبقى متوقّفة إن لم تفعل. ولا يوجد حساب تنشئه عند سَرْد: أنت توجّه سَرْد إلى مشروع تملكه على خدمة مزامنة تختارها، وتسجّل الدخول إليه."
+    },
+    {
+      "k": "p",
+      "t": "وأثناء عملها يُرسل سَرْد هذه الثلاثة — مع البريد الإلكتروني للحساب الذي سجّلت به — إلى ذلك المشروع، ويحفظ المفتاح الذي يصل به إليه في مخزن مفاتيح نظام تشغيلك لا في قاعدة بيانات سَرْد. ولا تُرفَع ملفّات كتبك أبدًا، ولا يُرسَل نصّ كتبك، ولا ملاحظاتك ولا تظليلاتك."
+    },
+    {
+      "k": "p",
+      "t": "ولأنّ المشروع مشروعك، فما يصل إليه ملكك: تقرؤه وتصدّره وتمحوه؛ والخدمة التي تستضيفه تخضع لسياسة الخصوصية الخاصّة بها لا لهذه السياسة. وتسجيل الخروج داخل سَرْد يُزيل المفتاح المحفوظ من جهازك ويوقف كلّ مزامنة بعده. أمّا محو النسخة المزامَنة فيجري في الخدمة نفسها — فهو مشروعك، وسَرْد لا يقدر على ذلك نيابةً عنك ولا يحاوله."
     },
     {
       "k": "h2",
@@ -642,7 +670,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "li",
-      "t": "لا حسابات ولا تسجيل دخول ولا ملفّات شخصية."
+      "t": "لا حساب لنا، ولا تسجيل دخول إلّا إذا شغّلت المزامنة: فذاك الحساب حسابك على خدمة تختارها."
     },
     {
       "k": "li",
@@ -658,7 +686,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "li",
-      "t": "لا مزامنة سحابية. مكتبتك لا تُنسَخ إلى أيّ خادم."
+      "t": "لا مزامنة إلّا إذا أعددتها بنفسك، ولا كتبك أبدًا: لا يغادر جهازك إلّا موضع قراءتك والفصول التي قرأتها وأبعد نقطة وصلت إليها، وإلى مشروعك أنت فقط."
     },
     {
       "k": "li",
@@ -689,8 +717,12 @@ export const LEGAL_PRIVACY: LegalDocument = {
       "t": "القراءة الصوتية لا تُرسل شيئًا إلّا أثناء استعمالك لها فعلًا. وتركُها يعني ألّا يُرسَل شيء."
     },
     {
+      "k": "li",
+      "t": "تسجيل الخروج من المزامنة يُزيل المفتاح المحفوظ من جهازك ويوقف كلّ مزامنة بعده."
+    },
+    {
       "k": "p",
-      "t": "وإن كنت تعيش حيث تكفل لك القوانين حقوقًا في حماية البيانات كالاطّلاع أو التصحيح أو المحو، فهذه الحقوق تُمارَس تجاه من يحتفظ ببياناتك — وفي حالة مكتبة سَرْد، فذاك أنت. ولا نملك نحن نسخةً نُطلعك عليها أو نُصحّحها أو نمحوها."
+      "t": "وإن كنت تعيش حيث تكفل لك القوانين حقوقًا في حماية البيانات كالاطّلاع أو التصحيح أو المحو، فهذه الحقوق تُمارَس تجاه من يحتفظ ببياناتك — وفي حالة مكتبة سَرْد، فذاك أنت. ولا نملك نحن نسخةً نُطلعك عليها أو نُصحّحها أو نمحوها: النسخة الوحيدة لأيّ شيء غادر جهازك هي التي وضعتها المزامنة في مشروعك، وهي لك تمحوها هناك."
     },
     {
       "k": "h2",
@@ -698,7 +730,7 @@ export const LEGAL_PRIVACY: LegalDocument = {
     },
     {
       "k": "p",
-      "t": "سَرْد صالح للقرّاء من كلّ الأعمار، ولا يجمع معلومات من أحد، والأطفال في ذلك سواء. فليس فيه نظام حسابات ولا مراسلة ولا ميزات اجتماعية ولا إعلانات."
+      "t": "سَرْد صالح للقرّاء من كلّ الأعمار، ولا يجمع معلومات من أحد، والأطفال في ذلك سواء. فليس فيه نظام حسابات خاصّ به، ولا مراسلة، ولا ميزات اجتماعية، ولا إعلانات."
     },
     {
       "k": "h2",
